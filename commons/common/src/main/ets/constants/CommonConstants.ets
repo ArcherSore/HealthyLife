@@ -143,6 +143,12 @@ export class CommonConstants {
   static readonly MAX_CONSECUTIVE_DAYS: string = 'maxConsecutiveDays';
   static readonly CURRENT_CONSECUTIVE_DAYS: string = 'currentConsecutiveDays';
   static readonly CURRENT_DAY_STATUS: string = 'currentDayStatus';
+  // task over achievement info
+  static readonly TASK_OVER_ACHIEVEMENT: string = 'taskOverAchievement';
+  // over achievement percentages
+  static readonly OVER_ACHIEVEMENT_200: number = 200;
+  static readonly OVER_ACHIEVEMENT_300: number = 300;
+  static readonly OVER_ACHIEVEMENT_400: number = 400;
   // menu info
   static readonly DEFAULT_MENU_INFO: Resource[] = [
     $r('app.string.mine_personal_data'),

@@ -50,6 +50,11 @@ export class PreferencesUtils {
         if (!PreferencesUtils.storePreferences.hasSync(Const.CURRENT_DAY_STATUS)) {
           await PreferencesUtils.putPreference(Const.CURRENT_DAY_STATUS, String(false));
         }
+        // initialize task over achievement information
+        let defaultArray = JSON.stringify(new Array<number>(Const.TASK_NUM).fill(0));
+        if (!PreferencesUtils.storePreferences.hasSync(Const.TASK_OVER_ACHIEVEMENT)) {
+          await PreferencesUtils.putPreference(Const.TASK_OVER_ACHIEVEMENT, defaultArray);
+        }
         hilog.info(0x0000, TAG, `Succeeded to init the preferences info, options is ${Const.ACHIEVEMENT_STORE}`);
       }
     } catch (error) {

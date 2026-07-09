@@ -231,6 +231,22 @@
     {
       "name": "unit_pre_day",
       "value": "/ 天"
+    },
+    {
+      "name": "global_streak_title",
+      "value": "全部任务连续达成"
+    },
+    {
+      "name": "over_achievement_title",
+      "value": "超额达成"
+    },
+    {
+      "name": "over_achievement_level",
+      "value": "%s%达成"
+    },
+    {
+      "name": "clock_in_continue",
+      "value": "继续打卡"
     }
   ]
 }

@@ -1,29 +1,14 @@
-/*
- *
- *  * Copyright (c) 2025 Huawei Device Co., Ltd.
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  *     http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
- *
- */
 
 import { ComponentContent } from '@kit.ArkUI';
-import { AchievementList } from '../../model/AchievementModel';
-import { CommonConstants as Const, PromptActionClass } from 'common';
+import { AchievementList, TaskOverAchievementList } from '../../model/AchievementModel';
+import { CommonConstants as Const, PromptActionClass, taskBaseInfoList } from 'common';
 import { AchievementDialogParams } from '../../viewmodel/dialog/AchievementDialogParams';
 
-export function openAchievementCustomDialog(uIContext: UIContext, index: number): void {
+export function openAchievementCustomDialog(uIContext: UIContext, index: number, medalType: string,
+  taskId: number): void {
   PromptActionClass.setContext(uIContext);
-  let params = new AchievementDialogParams(uIContext, index, Const.ANIMATE_OPACITY_0, Const.ANIMATE_ANGLE_0,
-    Const.ANIMATE_SCALE_0);
+  let params = new AchievementDialogParams(uIContext, index, medalType, taskId,
+    Const.ANIMATE_OPACITY_0, Const.ANIMATE_ANGLE_0, Const.ANIMATE_SCALE_0);
   let taskInfoDialogNode = new ComponentContent(uIContext, wrapBuilder(taskInfoDialogBuilder), params);
   PromptActionClass.setContentNode(taskInfoDialogNode);
   PromptActionClass.openDialog();
@@ -32,21 +17,35 @@ export function openAchievementCustomDialog(uIContext: UIContext, index: number)
 @Builder
 export function taskInfoDialogBuilder(param: AchievementDialogParams) {
   Column() {
-    Image(AchievementList[param.index].iconOn)
+    Image(getMedalIconOn(param))
       .width(Const.THOUSANDTH_560)
       .height(Const.THOUSANDTH_400)
       .objectFit(ImageFit.Contain)
 
-    Text($r('app.string.achievement_level', AchievementList[param.index].name))
-      .fontFamily(Const.HARMONY_HEI_TI)
-      .fontWeight(FontWeight.Regular)
-      .fontColor($r('sys.color.font_on_primary'))
-      .fontSize($r('app.float.default_24'))
-      .margin({
-        top: $r('app.float.default_12')
-      })
+    if (param.medalType === 'global') {
+      Text($r('app.string.achievement_level', AchievementList[param.index].name))
+        .fontFamily(Const.HARMONY_HEI_TI)
+        .fontWeight(FontWeight.Regular)
+        .fontColor($r('sys.color.font_on_primary'))
+        .fontSize($r('app.float.default_24'))
+        .margin({ top: $r('app.float.default_12') })
+    } else {
+      Text(taskBaseInfoList[param.taskId].name)
+        .fontFamily(Const.HARMONY_HEI_TI_BOLD)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_on_primary'))
+        .fontSize($r('app.float.default_20'))
+        .margin({ top: $r('app.float.default_8') })
+
+      Text($r('app.string.over_achievement_level', TaskOverAchievementList[param.index].name))
+        .fontFamily(Const.HARMONY_HEI_TI)
+        .fontWeight(FontWeight.Regular)
+        .fontColor($r('sys.color.font_on_primary'))
+        .fontSize($r('app.float.default_18'))
+        .margin({ top: $r('app.float.default_4') })
+    }
   }
-  .height(Const.THOUSANDTH_333)
+  .height(Const.THOUSANDTH_400)
   .width(Const.THOUSANDTH_500)
   .justifyContent(FlexAlign.Center)
   .scale({
@@ -68,8 +67,15 @@ export function taskInfoDialogBuilder(param: AchievementDialogParams) {
       iterations: Const.ANIMATE_ITERATIONS_1
     }, () => {
       PromptActionClass.contentNode.update(
-        new AchievementDialogParams(param.uiContext, param.index, Const.ANIMATE_OPACITY_1, Const.ANIMATE_ANGLE_360,
-          Const.ANIMATE_SCALE_1));
+        new AchievementDialogParams(param.uiContext, param.index, param.medalType, param.taskId,
+          Const.ANIMATE_OPACITY_1, Const.ANIMATE_ANGLE_360, Const.ANIMATE_SCALE_1));
     });
   })
+}
+
+function getMedalIconOn(param: AchievementDialogParams): Resource {
+  if (param.medalType === 'taskOverAchievement') {
+    return TaskOverAchievementList[param.index].iconOn;
+  }
+  return AchievementList[param.index].iconOn;
 }

@@ -231,6 +231,22 @@
     {
       "name": "unit_pre_day",
       "value": "/ day"
+    },
+    {
+      "name": "global_streak_title",
+      "value": "All Tasks Streak"
+    },
+    {
+      "name": "over_achievement_title",
+      "value": "Over Achievement"
+    },
+    {
+      "name": "over_achievement_level",
+      "value": "%s% achieved"
+    },
+    {
+      "name": "clock_in_continue",
+      "value": "Continue"
     }
   ]
 }

@@ -270,14 +270,11 @@ class DayInfoApi implements TableApi<DayInfo> {
   async initAchievementStoreByDayInfo(date: string): Promise<boolean> {
     const currentDayInfo: DayInfo | null = await this.queryByKey(date);
     if (currentDayInfo) {
-      // If the information of the day is already there, it means that the initialization is complete, and it will be returned directly.
       return true;
     }
 
-    // The achievement completion status is false on the day of initialization.
     await PreferencesUtils.putPreference(Const.CURRENT_DAY_STATUS, String(false));
 
-    // If the previous day's information exists and the task is not fully completed, the reset consecutive days record is 0.
     let lastDate = convertStr2Date(date);
     lastDate.setDate(lastDate.getDate() - 1);
     const lastDateStr = convertDate2Str(lastDate);

@@ -27,7 +27,7 @@ import { common } from '@kit.AbilityKit';
 @Component
 export struct HealthyLifePage {
   @State currentIndex: number = 0;
-  @Provide achievementStore: AchievementStore = new AchievementStore(0, 0, false);
+  @Provide achievementStore: AchievementStore = new AchievementStore(0, 0, false, new Array<number>(7).fill(0));
   @Provide('pathStack') pageStack: NavPathStack = new NavPathStack();
   @Provide homeStore: HomeStore = new HomeStore([], -1, '', []);
   private context = this.getUIContext()?.getHostContext() as common.UIAbilityContext;

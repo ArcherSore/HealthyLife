@@ -1,82 +1,92 @@
-/*
- *
- *  * Copyright (c) 2025 Huawei Device Co., Ltd.
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  *     http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
- *
- */
 
 import { JSON } from '@kit.ArkTS';
-import { CommonConstants as Const } from 'common';
-import { getAchievementDoneIndex } from '../model/AchievementModel';
+import { CommonConstants as Const, taskBaseInfoList, DayTaskInfo } from 'common';
+import { getAchievementDoneIndex, getTaskOverAchievementDoneIndex } from '../model/AchievementModel';
 import { TaskInfoDialogParams } from './dialog/TaskInfoDialogParams';
 import { PreferencesUtils } from 'common/src/main/ets/utils/PreferencesUtils';
 import { openAchievementCustomDialog } from '../views/dialog/AchievementDialog';
 
-/*
- * Global achievement information storage.
- */
 @Observed
 export class AchievementStore {
   public maxConsecutiveDays: number;
   public currentConsecutiveDays: number;
   public currentDayStatus: boolean;
+  public taskOverAchievement: number[];
 
-  constructor(maxConsecutiveDays: number, currentConsecutiveDays: number, currentDayStatus: boolean) {
+  constructor(maxConsecutiveDays: number, currentConsecutiveDays: number, currentDayStatus: boolean,
+    taskOverAchievement: number[]) {
     this.maxConsecutiveDays = maxConsecutiveDays;
     this.currentConsecutiveDays = currentConsecutiveDays;
     this.currentDayStatus = currentDayStatus;
+    this.taskOverAchievement = taskOverAchievement;
   }
 }
 
-/*
- * Initialize global achievement information.
- */
 export async function initAchievementStore() {
   const maxConsecutiveDays = Number(await PreferencesUtils.getPreference(Const.MAX_CONSECUTIVE_DAYS));
   const currentConsecutiveDays = Number(await PreferencesUtils.getPreference(Const.CURRENT_CONSECUTIVE_DAYS));
   const currentDayStatusStr: string = await PreferencesUtils.getPreference(Const.CURRENT_DAY_STATUS);
   const currentDayStatus = JSON.parse(currentDayStatusStr) as boolean;
-  return new AchievementStore(maxConsecutiveDays, currentConsecutiveDays, currentDayStatus)
+
+  const taskOverStr: string = await PreferencesUtils.getPreference(Const.TASK_OVER_ACHIEVEMENT);
+  let taskOverAchievement: number[] = JSON.parse(taskOverStr) as number[];
+  if (taskOverAchievement.length !== Const.TASK_NUM) {
+    taskOverAchievement = new Array<number>(Const.TASK_NUM).fill(0);
+  }
+
+  return new AchievementStore(maxConsecutiveDays, currentConsecutiveDays, currentDayStatus, taskOverAchievement);
 }
 
-/*
- * Update the information when the achievement information changes.
- * @param { TaskInfoDialogParams } params Task info for clock custom dialog parameters.
- */
 export async function updateAchievementStore(params: TaskInfoDialogParams) {
-  //Judge whether all tasks are completed that day, and return if not.
   const dayInfo = params.homeStore.weekList[params.homeStore.selectedDay];
   if (dayInfo.finTaskNum < dayInfo.targetTaskNum || params.achievementStore.currentDayStatus) {
     return;
   }
 
-  // If all tasks have been completed that day, the number of consecutive days of completion is added to the user preferences.
   params.achievementStore.currentConsecutiveDays += 1;
   await PreferencesUtils.putPreference(Const.CURRENT_CONSECUTIVE_DAYS,
     String(params.achievementStore.currentConsecutiveDays));
   params.achievementStore.currentDayStatus = true;
   await PreferencesUtils.putPreference(Const.CURRENT_DAY_STATUS, String(params.achievementStore.currentDayStatus));
 
-  // Determine whether the current number of consecutive days exceeds the maximum number of consecutive days.
   if (params.achievementStore.currentConsecutiveDays > params.achievementStore.maxConsecutiveDays) {
-    // If it exceeds, synchronize the global storage and user preference content to update.
     params.achievementStore.maxConsecutiveDays = params.achievementStore.currentConsecutiveDays;
     await PreferencesUtils.putPreference(Const.MAX_CONSECUTIVE_DAYS,
       String(params.achievementStore.maxConsecutiveDays));
-    // Get the achievement for a specified number of days, and if so, open a pop-up window to display the achievement animation.
     const achievementDoneIndex = getAchievementDoneIndex(params.achievementStore.maxConsecutiveDays);
     if (achievementDoneIndex !== -1) {
-      openAchievementCustomDialog(params.uIContext, achievementDoneIndex);
+      openAchievementCustomDialog(params.uIContext, achievementDoneIndex, 'global', -1);
+    }
+  }
+}
+
+export async function updateTaskAchievementStore(params: TaskInfoDialogParams) {
+  const taskId = params.dayTaskInfo.taskId;
+  const store = params.achievementStore;
+  const currentTask = params.homeStore.taskList.find((task: DayTaskInfo) => task.taskId === taskId);
+  if (!currentTask) {
+    return;
+  }
+
+  const step = taskBaseInfoList[taskId].step;
+  if (step > 0) {
+    const targetValue = Number(currentTask.targetValue);
+    const finValue = Number(currentTask.finValue);
+    if (targetValue > 0) {
+      const percentage = Math.floor(finValue / targetValue * 100);
+      if (percentage > store.taskOverAchievement[taskId]) {
+        store.taskOverAchievement[taskId] = percentage;
+        await PreferencesUtils.putPreference(Const.TASK_OVER_ACHIEVEMENT, JSON.stringify(store.taskOverAchievement));
+        const thresholds: number[] = [Const.OVER_ACHIEVEMENT_200, Const.OVER_ACHIEVEMENT_300, Const.OVER_ACHIEVEMENT_400];
+        for (let i = 0; i < thresholds.length; i++) {
+          if (percentage >= thresholds[i]) {
+            const overIndex = getTaskOverAchievementDoneIndex(taskId, thresholds[i]);
+            if (overIndex !== -1) {
+              openAchievementCustomDialog(params.uIContext, overIndex, 'taskOverAchievement', taskId);
+            }
+          }
+        }
+      }
     }
   }
 }

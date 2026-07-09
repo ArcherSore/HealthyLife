@@ -1,24 +1,8 @@
-/*
- *
- *  * Copyright (c) 2025 Huawei Device Co., Ltd.
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  *     http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
- *
- */
 
 import { ComponentContent } from '@kit.ArkUI';
 import { updateTaskList } from '../../viewmodel/HomeStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
-import { updateAchievementStore } from '../../viewmodel/AchievementStore';
+import { updateAchievementStore, updateTaskAchievementStore } from '../../viewmodel/AchievementStore';
 import { TaskInfoDialogParams } from '../../viewmodel/dialog/TaskInfoDialogParams';
 import { CommonConstants as Const, PromptActionClass, taskBaseInfoList } from 'common';
 
@@ -46,7 +30,7 @@ export function taskClockDialogBuilder(params: TaskInfoDialogParams) {
       });
 
     Button() {
-      Text(params.dayTaskInfo.isDone ? $r('app.string.was_done') : $r('app.string.clock_in'))
+      Text(getClockButtonText(params))
         .fontFamily(Const.HARMONY_HEI_TI)
         .fontWeight(FontWeight.Normal)
         .fontColor($r(`sys.color.font_on_primary`))
@@ -74,15 +58,30 @@ export function taskClockDialogBuilder(params: TaskInfoDialogParams) {
   })
 }
 
+function getClockButtonText(params: TaskInfoDialogParams): ResourceStr {
+  const step = taskBaseInfoList[params.dayTaskInfo.taskId].step;
+  if (params.dayTaskInfo.isDone) {
+    if (step > 0) {
+      return $r('app.string.clock_in_continue');
+    }
+    return $r('app.string.was_done');
+  }
+  return $r('app.string.clock_in');
+}
+
 async function taskClock(params: TaskInfoDialogParams) {
-  if (!params.dayTaskInfo.isDone) {
+  const step = taskBaseInfoList[params.dayTaskInfo.taskId].step;
+  const canClockIn = !params.dayTaskInfo.isDone || step > 0;
+  if (canClockIn) {
     await TaskInfoApi.clockTask(params.dayTaskInfo.date, params.dayTaskInfo.taskId);
     await updateTaskList(params.homeStore);
   }
   PromptActionClass.closeDialog();
 
-  // After the check-in is completed, determine whether all the tasks of the day are completed and update the achievement information.
   if (!params.dayTaskInfo.isDone) {
     await updateAchievementStore(params);
+  }
+  if (canClockIn) {
+    await updateTaskAchievementStore(params);
   }
 }

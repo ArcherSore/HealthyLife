@@ -408,24 +408,22 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       hilog.info(0x0000, TAG, `The current task is not open and cannot be clock, taskId is ${taskInfo.taskId}`);
       return true;
     }
-    if (taskInfo.isDone) {
+    let step = taskBaseInfoList[taskId].step;
+    if (taskInfo.isDone && step === 0) {
       hilog.info(0x0000, TAG, `The current task is done and cannot be clock, taskId is ${taskInfo.taskId}`);
       return true;
     }
 
     let result = true;
-    /*
-     * Step 0 means that the task is a one-time task and can be completed directly.
-     * Otherwise, you need to add the step value to determine whether it is completed.
-     */
-    let step = taskBaseInfoList[taskId].step;
     if (step === 0) {
       taskInfo.finValue = taskInfo.targetValue;
       taskInfo.isDone = true;
     } else {
       let finValue = Number(taskInfo.finValue) + step;
       taskInfo.finValue = finValue.toString();
-      taskInfo.isDone = finValue >= Number(taskInfo.targetValue);
+      if (!taskInfo.isDone) {
+        taskInfo.isDone = finValue >= Number(taskInfo.targetValue);
+      }
     }
 
     result = await this.update(taskId, taskInfo);
