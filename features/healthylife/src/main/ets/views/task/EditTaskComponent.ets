@@ -253,9 +253,8 @@ export struct EditTaskComponent {
           .opacity(this.taskInfo.isOpen ? Const.ANIMATE_OPACITY_1 : 0.4)
 
           if (this.taskInfo.isAlert) {
-            this.reminderRowBuilder($r('app.string.reminder_time'), this.taskInfo.alertStartTime, ReminderSettingType.TIME)
-            this.reminderRowBuilder($r('app.string.reminder_frequency'), this.getReminderFrequencyText(),
-              ReminderSettingType.FREQUENCY)
+            this.reminderRowBuilder($r('app.string.reminder_time'), ReminderSettingType.TIME)
+            this.reminderRowBuilder($r('app.string.reminder_frequency'), ReminderSettingType.FREQUENCY)
           }
         }
 
@@ -305,7 +304,7 @@ export struct EditTaskComponent {
   }
 
   @Builder
-  reminderRowBuilder(label: Resource, value: ResourceStr, settingType: ReminderSettingType) {
+  reminderRowBuilder(label: Resource, settingType: ReminderSettingType) {
     Row() {
       Text(label)
         .fontWeight(FontWeight.Medium)
@@ -313,7 +312,7 @@ export struct EditTaskComponent {
 
       Blank()
 
-      Text(value)
+      Text(settingType === ReminderSettingType.TIME ? this.taskInfo.alertStartTime : this.getReminderFrequencyText())
         .fontSize($r('app.float.default_16'))
         .fontColor($r('sys.color.font_primary'))
         .padding({

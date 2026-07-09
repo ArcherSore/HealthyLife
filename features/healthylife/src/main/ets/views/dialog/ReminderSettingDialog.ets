@@ -143,5 +143,6 @@ function reminderFrequencyItemBuilder(params: ReminderSettingDialogParams, value
   })
   .onClick(() => {
     params.selectedValue = value;
+    PromptActionClass.contentNode.update(params);
   })
 }
