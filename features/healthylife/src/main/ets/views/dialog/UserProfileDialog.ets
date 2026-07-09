@@ -135,14 +135,14 @@ export function openUserProfileAvatarDialog(uiContext: UIContext, userProfileSto
 @Builder
 function userProfileInputDialogBuilder(params: UserProfileInputDialogParams) {
   Column() {
-    dialogTitleBuilder(params.title)
+    inputDialogTitleBuilder(params.title)
 
     TextInput({
       text: params.inputValue,
       placeholder: params.placeholder
     })
       .width(Const.THOUSANDTH_900)
-      .height($r('app.float.default_48'))
+      .height($r('app.float.default_44'))
       .fontSize($r('app.float.default_18'))
       .maxLength(params.inputType === UserProfileInputType.NICKNAME ? 20 : 6)
       .backgroundColor($r('sys.color.background_secondary'))
@@ -170,16 +170,15 @@ function userProfileInputDialogBuilder(params: UserProfileInputDialogParams) {
     .height($r('app.float.default_56'))
     .justifyContent(FlexAlign.SpaceAround)
     .margin({
-      top: $r('app.float.default_8')
+      top: $r('app.float.default_16')
     })
   }
-  .dialogContainerStyle(Const.THOUSANDTH_420)
+  .inputDialogContainerStyle()
 }
 
 @Builder
 function userProfileGenderDialogBuilder(params: UserProfileGenderDialogParams) {
   Column() {
-    dialogTitleBuilder($r('app.string.profile_gender'))
     profileSelectItemBuilder(params, GENDER_MALE, $r('app.string.profile_gender_male'))
     profileSelectItemBuilder(params, GENDER_FEMALE, $r('app.string.profile_gender_female'))
     profileSelectItemBuilder(params, GENDER_SECRET, $r('app.string.profile_gender_secret'))
@@ -204,8 +203,11 @@ function userProfileGenderDialogBuilder(params: UserProfileGenderDialogParams) {
     .width(Const.THOUSANDTH_1000)
     .height($r('app.float.default_56'))
     .justifyContent(FlexAlign.SpaceAround)
+    .margin({
+      top: $r('app.float.default_8')
+    })
   }
-  .dialogContainerStyle(Const.THOUSANDTH_420)
+  .menuDialogContainerStyle()
 }
 
 @Builder
@@ -256,7 +258,6 @@ function userProfileBirthdayDialogBuilder(params: UserProfileBirthdayDialogParam
 @Builder
 function userProfileAvatarDialogBuilder(params: UserProfileAvatarDialogParams) {
   Column() {
-    dialogTitleBuilder($r('app.string.profile_avatar'))
     avatarActionItemBuilder($r('app.string.profile_view_avatar'), async () => {
       PromptActionClass.closeDialog();
       params.pageStack.pushPathByName('AvatarPreviewComponent', '');
@@ -271,7 +272,7 @@ function userProfileAvatarDialogBuilder(params: UserProfileAvatarDialogParams) {
       PromptActionClass.closeDialog();
     })
   }
-  .dialogContainerStyle(Const.THOUSANDTH_420)
+  .actionDialogContainerStyle()
 }
 
 @Builder
@@ -288,6 +289,22 @@ function dialogTitleBuilder(title: Resource) {
   }
   .width(Const.THOUSANDTH_1000)
   .height($r('app.float.default_56'))
+  .justifyContent(FlexAlign.Center)
+}
+
+@Builder
+function inputDialogTitleBuilder(title: Resource) {
+  Row() {
+    Text(title)
+      .fontSize($r('app.float.default_20'))
+      .fontWeight(FontWeight.Bold)
+      .margin({
+        top: $r('app.float.default_8'),
+        bottom: $r('app.float.default_10')
+      })
+  }
+  .width(Const.THOUSANDTH_1000)
+  .height($r('app.float.default_48'))
   .justifyContent(FlexAlign.Center)
 }
 
@@ -337,6 +354,48 @@ function dialogContainerStyle(heightValue: string) {
   .backgroundColor($r('sys.color.background_primary'))
   .height(heightValue)
   .justifyContent(FlexAlign.SpaceAround)
+  .borderRadius($r('app.float.default_32'))
+  .margin({
+    left: $r('app.float.default_18'),
+    right: $r('app.float.default_18'),
+    bottom: Const.THOUSANDTH_500
+  })
+  .padding($r('app.float.default_12'))
+}
+
+@Extend(Column)
+function inputDialogContainerStyle() {
+  .backgroundColor($r('sys.color.background_primary'))
+  .height($r('app.float.default_220'))
+  .justifyContent(FlexAlign.Start)
+  .borderRadius($r('app.float.default_32'))
+  .margin({
+    left: $r('app.float.default_18'),
+    right: $r('app.float.default_18'),
+    bottom: Const.THOUSANDTH_500
+  })
+  .padding($r('app.float.default_12'))
+}
+
+@Extend(Column)
+function menuDialogContainerStyle() {
+  .backgroundColor($r('sys.color.background_primary'))
+  .height($r('app.float.default_267'))
+  .justifyContent(FlexAlign.Start)
+  .borderRadius($r('app.float.default_32'))
+  .margin({
+    left: $r('app.float.default_18'),
+    right: $r('app.float.default_18'),
+    bottom: Const.THOUSANDTH_500
+  })
+  .padding($r('app.float.default_12'))
+}
+
+@Extend(Column)
+function actionDialogContainerStyle() {
+  .backgroundColor($r('sys.color.background_primary'))
+  .height($r('app.float.default_220'))
+  .justifyContent(FlexAlign.Start)
   .borderRadius($r('app.float.default_32'))
   .margin({
     left: $r('app.float.default_18'),

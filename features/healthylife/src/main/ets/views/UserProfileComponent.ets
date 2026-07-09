@@ -71,22 +71,30 @@ export struct UserProfileComponent {
         Scroll() {
           Column() {
             Column() {
-              Stack({ alignContent: Alignment.BottomEnd }) {
+              Stack({ alignContent: Alignment.Center }) {
                 this.avatarBuilder($r('app.float.default_88'))
 
-                SymbolGlyph($r('sys.symbol.camera'))
-                  .fontColor([$r('sys.color.icon_on_primary')])
-                  .fontSize($r('app.float.default_18'))
-                  .width($r('app.float.default_28'))
-                  .height($r('app.float.default_28'))
-                  .backgroundColor($r('sys.color.brand'))
-                  .borderRadius(Const.BORDER_RADIUS_PERCENT_50)
+                Row() {
+                  SymbolGlyph($r('sys.symbol.camera'))
+                    .fontColor([$r('sys.color.icon_on_primary')])
+                    .fontSize($r('app.float.default_18'))
+                }
+                .justifyContent(FlexAlign.Center)
+                .alignItems(VerticalAlign.Center)
+                .width($r('app.float.default_28'))
+                .height($r('app.float.default_28'))
+                .backgroundColor($r('sys.color.brand'))
+                .borderRadius(Const.BORDER_RADIUS_PERCENT_50)
+                .position({
+                  x: $r('app.float.default_66'),
+                  y: $r('app.float.default_62')
+                })
               }
               .width($r('app.float.default_100'))
               .height($r('app.float.default_100'))
               .margin({
-                top: $r('app.float.default_16'),
-                bottom: $r('app.float.default_8')
+                top: $r('app.float.default_12'),
+                bottom: $r('app.float.default_4')
               })
               .onClick(() => {
                 openUserProfileAvatarDialog(this.getUIContext(), this.userProfileStore, this.pageStack);
@@ -95,8 +103,10 @@ export struct UserProfileComponent {
               Text($r('app.string.profile_change_avatar'))
                 .fontColor($r('app.color.text_font_color'))
                 .fontSize($r('app.float.default_14'))
+                .textAlign(TextAlign.Center)
+                .width(Const.THOUSANDTH_1000)
                 .margin({
-                  bottom: $r('app.float.default_16')
+                  bottom: $r('app.float.default_14')
                 })
             }
             .width(Const.THOUSANDTH_940)
@@ -134,12 +144,16 @@ export struct UserProfileComponent {
             this.profileRowBuilder($r('app.string.profile_weight'), UserProfileField.WEIGHT, 'kg', () => {
               openUserProfileInputDialog(this.getUIContext(), this.userProfileStore, UserProfileInputType.WEIGHT);
             }, false, true)
+
+            Blank()
+              .height($r('app.float.default_120'))
           }
           .width(Const.THOUSANDTH_1000)
           .alignItems(HorizontalAlign.Center)
+          .justifyContent(FlexAlign.Start)
         }
         .width(Const.THOUSANDTH_1000)
-        .height(Const.THOUSANDTH_1000)
+        .layoutWeight(Const.FLEX_GROW_1)
       }
       .width(Const.THOUSANDTH_1000)
       .height(Const.THOUSANDTH_1000)
