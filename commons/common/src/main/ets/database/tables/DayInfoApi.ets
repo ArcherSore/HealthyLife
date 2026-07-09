@@ -210,30 +210,18 @@ class DayInfoApi implements TableApi<DayInfo> {
     let taskListOfOpen: TaskInfo[] = await TaskInfoApi.queryOpenedTaskInfo();
 
     if (currentDayInfo) {
-      // current day info exist, check day and task info Whether it is complete.
+      // current day info exist, clean up dayTaskInfo records for tasks that have been closed.
       let queryDayTaskSql = `SELECT * FROM dayTaskInfo WHERE date = ${date} ORDER BY taskId`;
       let dayTaskList: DayTaskInfo[] = await DayTaskInfoApi.query(queryDayTaskSql);
-      if (taskListOfOpen.length !== dayTaskList.length) {
-        // day and task info partially missing, identify missing information and insert it.
-        let exitsIndex: number[] = [];
-        for (let dayTask of dayTaskList) {
-          exitsIndex.push(dayTask.taskId);
+      let openedIds: number[] = [];
+      for (let taskOfOpen of taskListOfOpen) {
+        openedIds.push(taskOfOpen.taskId);
+      }
+      for (let dayTask of dayTaskList) {
+        if (!openedIds.includes(dayTask.taskId)) {
+          await DayTaskInfoApi.delete(dayTask.id);
+          hilog.info(0x0000, TAG, `Removed stale dayTaskInfo for closed task ${dayTask.taskId} on date ${date}`);
         }
-
-        let missInfoList: DayTaskInfo[] = [];
-        for (let taskOfOpen of taskListOfOpen) {
-          if (exitsIndex.includes(taskOfOpen.taskId)) {
-            continue;
-          }
-          missInfoList.push(taskOfOpen.convert2DefaultDayTask(date));
-        }
-
-        result = await DayTaskInfoApi.batchInsert(missInfoList);
-        if (result === -1) {
-          hilog.error(0x0000, TAG, `Additional current day and task info failed`);
-          return false;
-        }
-        hilog.info(0x0000, TAG, `Additional current day and task info successed`);
       }
       return true;
     }
@@ -248,18 +236,6 @@ class DayInfoApi implements TableApi<DayInfo> {
       return false;
     }
     hilog.info(0x0000, TAG, `Init current day info successed, date is ${date}`);
-
-    // After initializing the current day's information, add the opened task information to the current day's task information.
-    let dayTaskInfoList: DayTaskInfo[] = [];
-    for (let taskOfOpen of taskListOfOpen) {
-      dayTaskInfoList.push(taskOfOpen.convert2DefaultDayTask(date));
-    }
-    result = await DayTaskInfoApi.batchInsert(dayTaskInfoList)
-    if (result === -1) {
-      hilog.error(0x0000, TAG, `Init current day of task info failed`);
-      return false;
-    }
-    hilog.info(0x0000, TAG, `Init current day of task info successed`);
 
     // After the task of the day is successfully added, the information of the day is updated synchronously.
     await this.updateDayByTaskStatus(date);

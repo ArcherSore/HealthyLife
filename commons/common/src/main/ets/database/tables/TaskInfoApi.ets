@@ -317,7 +317,7 @@ class TaskInfoApi implements TableApi<TaskInfo> {
 
     // modify the current task to open.
     let result = true;
-    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = true, finValue = "" WHERE taskId = ${taskId}`
+    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = true, finValue = "", isDone = false WHERE taskId = ${taskId}`
     result = await RdbUtils.executeSql(openTaskSql);
     if (!result) {
       return result;

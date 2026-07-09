@@ -19,7 +19,6 @@ import {
   CommonConstants as Const, convertDate2Str, DayInfo, DayTaskInfo
 } from 'common';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
-import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
 
 /*
@@ -76,13 +75,6 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
 
   let dateStr = convertDate2Str(date);
   let taskList: DayTaskInfo[] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
-  if (taskList.length === 0 && date > new Date()) {
-    // If the task list is empty on the current day, the current date is greater than the system date, and the task information needs to be initialized and populated.
-    let openedTaskList = await TaskInfoApi.queryOpenedTaskInfo();
-    for (let openedTask of openedTaskList) {
-      taskList.push(openedTask.convert2DefaultDayTask(dateStr))
-    }
-  }
   weekTaskMap[dateStr] = taskList;
   return new HomeStore(weekList, selectedDay + Const.WEEK_DAY_NUM, dateStr, taskList, weekTaskMap);
 }
@@ -102,13 +94,6 @@ export async function updateTaskList(homeStore: HomeStore): Promise<void> {
 
   let dateStr = homeStore.currentDate;
   let taskList: DayTaskInfo[] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
-  if (taskList.length === 0) {
-    // If the task list is empty on the current day, the current date is greater than the system date, and the task information needs to be initialized and populated.
-    let openedTaskList = await TaskInfoApi.queryOpenedTaskInfo();
-    for (let openedTask of openedTaskList) {
-      taskList.push(openedTask.convert2DefaultDayTask(dateStr))
-    }
-  }
   homeStore.taskList = taskList;
   homeStore.weekTaskMap[dateStr] = taskList;
 }
