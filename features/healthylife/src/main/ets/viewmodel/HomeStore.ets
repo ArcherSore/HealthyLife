@@ -85,12 +85,16 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
  * @returns { Promise<void> }  A promise object.
  */
 export async function updateTaskList(homeStore: HomeStore): Promise<void> {
-  let dayInfo = await DayInfoApi.queryByKey(homeStore.currentDate);
-  if (dayInfo === null) {
-    // if this info is null, init to default value.
-    dayInfo = new DayInfo(homeStore.currentDate, 0, 0);
+  for (let index = 0; index < homeStore.weekList.length; index++) {
+    const dateStr = homeStore.weekList[index].date;
+    let dayInfo = await DayInfoApi.queryByKey(dateStr);
+    if (dayInfo === null) {
+      // if this info is null, init to default value.
+      dayInfo = new DayInfo(dateStr, 0, 0);
+    }
+    homeStore.weekList[index] = dayInfo;
+    homeStore.weekTaskMap[dateStr] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
   }
-  homeStore.weekList[homeStore.selectedDay] = dayInfo;
 
   let dateStr = homeStore.currentDate;
   let taskList: DayTaskInfo[] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);

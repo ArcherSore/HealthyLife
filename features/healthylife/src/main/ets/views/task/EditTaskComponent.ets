@@ -137,15 +137,14 @@ export struct EditTaskComponent {
         this.taskInfo.isOpen = true;
         await this.syncReminderAgent();
       } else {
-        await TaskInfoApi.closeTask(this.homeStore.currentDate, this.taskInfo.taskId);
-        // Check the reminderId, if it exists, the proxy reminder needs to be turned off.
-        if (this.taskBaseInfo.supportReminder) {
-          let taskInfo = await TaskInfoApi.queryByKey(this.taskInfo.taskId);
-          if (taskInfo && taskInfo.reminderId !== -1) {
-            AgentUtils.deleteAgent(taskInfo.reminderId);
-            hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${taskInfo.reminderId}`);
-          }
+        if (this.taskBaseInfo.supportReminder && this.taskInfo.reminderId !== -1) {
+          AgentUtils.deleteAgent(this.taskInfo.reminderId);
+          hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
         }
+        await TaskInfoApi.closeTask(this.homeStore.currentDate, this.taskInfo.taskId);
+        this.taskInfo.isOpen = false;
+        this.taskInfo.isAlert = false;
+        this.taskInfo.reminderId = -1;
       }
     }
     await updateTaskList(this.homeStore);
@@ -170,6 +169,9 @@ export struct EditTaskComponent {
             .height($r('app.float.default_20'))
             .onChange((isOn) => {
               this.taskInfo.isOpen = isOn;
+              if (!isOn && this.taskBaseInfo.supportReminder) {
+                this.taskInfo.isAlert = false;
+              }
             })
         }
         .width(Const.THOUSANDTH_940)
@@ -314,13 +316,15 @@ export struct EditTaskComponent {
 
       Text(settingType === ReminderSettingType.TIME ? this.taskInfo.alertStartTime : this.getReminderFrequencyText())
         .fontSize($r('app.float.default_16'))
-        .fontColor($r('sys.color.font_primary'))
+        .fontColor((this.taskInfo.isOpen && this.taskInfo.isAlert) ? $r('sys.color.font_primary') :
+          $r('sys.color.font_tertiary'))
         .padding({
           right: $r('app.float.default_6')
         })
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontColor([$r('sys.color.icon_secondary')])
+        .fontColor([(this.taskInfo.isOpen && this.taskInfo.isAlert) ? $r('sys.color.icon_secondary') :
+          $r('sys.color.font_tertiary')])
         .fontSize($r('app.float.default_28'))
     }
     .width(Const.THOUSANDTH_940)
@@ -334,6 +338,9 @@ export struct EditTaskComponent {
     })
     .enabled(this.taskInfo.isOpen && this.taskInfo.isAlert)
     .onClick(() => {
+      if (!this.taskInfo.isOpen || !this.taskInfo.isAlert) {
+        return;
+      }
       let params = new ReminderSettingDialogParams(this.taskInfo, settingType);
       openReminderSettingCustomDialog(this.getUIContext(), params);
     })

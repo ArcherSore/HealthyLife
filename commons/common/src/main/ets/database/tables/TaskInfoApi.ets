@@ -360,25 +360,34 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       return true;
     }
 
+    let affectedDateList = await DayTaskInfoApi.queryDateListByTaskId(taskId);
+    if (!affectedDateList.includes(date)) {
+      affectedDateList.push(date);
+    }
+
     let result = true;
-    // modify the current task to close.
-    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = false WHERE taskId = ${taskId}`
+    // modify the current task to close, and turn off reminders without clearing reminder settings.
+    let openTaskSql =
+      `UPDATE ${TABLE_NAME} SET isOpen = false, finValue = "", isDone = false, isAlert = false, reminderId = -1 ` +
+        `WHERE taskId = ${taskId}`
     result = await RdbUtils.executeSql(openTaskSql);
     if (!result) {
       return result;
     }
 
-    // If this task is not done, synchronously delete the task information records of the day and taskId.
-    if (!oldTaskInfo.isDone) {
-      let key = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskId);
-      result = await DayTaskInfoApi.delete(key);
+    // Synchronously delete all daily task records for this closed task.
+    result = await DayTaskInfoApi.deleteByTaskId(taskId);
+    if (!result) {
+      return result;
+    }
+
+    // Synchronously update all affected daily summaries for task list, calendar, and forms.
+    for (let affectedDate of affectedDateList) {
+      result = await DayInfoApi.updateDayByTaskStatus(affectedDate);
       if (!result) {
         return result;
       }
     }
-
-    // Synchronously modify the number of information tasks for the day.
-    result = await DayInfoApi.updateDayByTaskStatus(date);
 
     return result;
   }

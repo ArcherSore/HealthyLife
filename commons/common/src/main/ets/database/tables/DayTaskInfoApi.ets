@@ -83,6 +83,20 @@ class DayTaskInfoApi implements TableApi<DayTaskInfo> {
     return result;
   }
 
+  async deleteByTaskId(taskId: number): Promise<boolean> {
+    let result = true;
+    let predicates = new relationalStore.RdbPredicates(TABLE_NAME);
+    predicates.equalTo('taskId', taskId);
+    await RdbUtils.rdbStore?.delete(predicates).then((rows: number) => {
+      hilog.info(0x0000, TAG, `Delete by taskId is successful, taskId is ${taskId}, affected rows is ${rows}`);
+    }).catch((err: BusinessError) => {
+      hilog.error(0x0000, TAG,
+        `Delete by taskId is failed, taskId is ${taskId}, code is ${err.code}, message is ${err.message}`);
+      result = false;
+    });
+    return result;
+  }
+
   async update(primaryKey: number, data: DayTaskInfo): Promise<boolean> {
     let result = true;
     const valueBucket = this.convertEntity2ValuesBucket(data, true);
@@ -210,6 +224,27 @@ class DayTaskInfoApi implements TableApi<DayTaskInfo> {
     }).catch((err: BusinessError) => {
       hilog.error(0x0000, TAG,
         `Query is failed, date is ${date}, taskId is ${taskId}, code is ${err.code}, message is ${err.message}`);
+    });
+    return result;
+  }
+
+  async queryDateListByTaskId(taskId: number): Promise<string[]> {
+    let result: string[] = [];
+    let predicates = new relationalStore.RdbPredicates(TABLE_NAME);
+    predicates.equalTo('taskId', taskId);
+    predicates.orderByAsc('date')
+    await RdbUtils.rdbStore?.query(predicates).then((resultSet: relationalStore.ResultSet) => {
+      while (resultSet.goToNextRow()) {
+        const date = resultSet.getValue(resultSet.getColumnIndex('date')) as string;
+        if (!result.includes(date)) {
+          result.push(date);
+        }
+      }
+      resultSet.close();
+      hilog.info(0x0000, TAG, `Query date list by taskId is successful, taskId is ${taskId}, query count is ${result.length}`);
+    }).catch((err: BusinessError) => {
+      hilog.error(0x0000, TAG,
+        `Query date list by taskId is failed, taskId is ${taskId}, code is ${err.code}, message is ${err.message}`);
     });
     return result;
   }
