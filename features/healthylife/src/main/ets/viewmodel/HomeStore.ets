@@ -32,16 +32,23 @@ export class HomeStore {
   public selectedDay: number;
   public currentDate: string;
   public taskList: DayTaskInfo[];
+  public weekTaskMap: Record<string, DayTaskInfo[]>;
 
-  constructor(weekList: DayInfo[], selectedDay: number, currentDate: string, taskList: DayTaskInfo[]) {
+  constructor(weekList: DayInfo[], selectedDay: number, currentDate: string, taskList: DayTaskInfo[],
+    weekTaskMap: Record<string, DayTaskInfo[]> = {}) {
     this.weekList = weekList;
     this.selectedDay = selectedDay;
     this.currentDate = currentDate;
     this.taskList = taskList;
+    this.weekTaskMap = weekTaskMap;
   }
 
   public checkCurrentDay(): boolean {
     return convertDate2Str(new Date()) === this.currentDate;
+  }
+
+  public getTaskListByDate(date: string): DayTaskInfo[] {
+    return this.weekTaskMap[date] || [];
   }
 }
 
@@ -55,6 +62,7 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
   let selectedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   let dateList: Date[] = getWeekDates(date, selectedDay);
   let weekList: DayInfo[] = [];
+  let weekTaskMap: Record<string, DayTaskInfo[]> = {};
   for (let dateOfWeek of dateList) {
     let dateStr = convertDate2Str(dateOfWeek);
     let dayInfo = await DayInfoApi.queryByKey(dateStr);
@@ -63,6 +71,7 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
       dayInfo = new DayInfo(dateStr, 0, 0);
     }
     weekList.push(dayInfo);
+    weekTaskMap[dateStr] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
   }
 
   let dateStr = convertDate2Str(date);
@@ -74,7 +83,8 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
       taskList.push(openedTask.convert2DefaultDayTask(dateStr))
     }
   }
-  return new HomeStore(weekList, selectedDay + Const.WEEK_DAY_NUM, dateStr, taskList);
+  weekTaskMap[dateStr] = taskList;
+  return new HomeStore(weekList, selectedDay + Const.WEEK_DAY_NUM, dateStr, taskList, weekTaskMap);
 }
 
 /*
@@ -100,6 +110,7 @@ export async function updateTaskList(homeStore: HomeStore): Promise<void> {
     }
   }
   homeStore.taskList = taskList;
+  homeStore.weekTaskMap[dateStr] = taskList;
 }
 
 /*

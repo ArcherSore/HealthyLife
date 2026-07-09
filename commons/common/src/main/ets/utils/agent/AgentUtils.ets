@@ -20,6 +20,7 @@ import { notificationManager } from '@kit.NotificationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { TaskInfo } from '../../model/database/TaskInfo';
 import { TaskBaseInfo } from '../../model/TaskBaseModel';
+import { CommonConstants as Const } from '../../constants/CommonConstants';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG: string = '[AgentUtils]';
@@ -60,16 +61,18 @@ export class AgentUtils {
 
   static agentConfigSet(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, uIContext: UIContext) {
     // Adjust the time format
-    let GeneratedDestructArray_1 = taskInfo.targetValue.split(':');
+    let reminderTime = taskInfo.alertStartTime || taskInfo.targetValue || '08:00';
+    let GeneratedDestructArray_1 = reminderTime.split(':');
     let hourStr = GeneratedDestructArray_1[0];
     let minuteStr = GeneratedDestructArray_1[1];
+    let daysOfWeek = AgentUtils.getDaysOfWeek(taskInfo.alertFrequency);
     try {
       let displayText = uIContext.getHostContext()?.resourceManager.getStringSync(taskBaseInfo.name.id);
       let targetReminderAgent: reminderAgentManager.ReminderRequestAlarm = {
         reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_ALARM,
         hour: parseInt(hourStr),
         minute: parseInt(minuteStr),
-        daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+        daysOfWeek: daysOfWeek,
         actionButton: [
           {
             title: 'close',
@@ -97,6 +100,18 @@ export class AgentUtils {
     } catch (error) {
       hilog.error(0x0000, TAG, `an error occurred: ${error}`);
       return undefined
+    }
+  }
+
+  private static getDaysOfWeek(alertFrequency: string): number[] {
+    switch (alertFrequency) {
+      case Const.REMINDER_FREQUENCY_WEEKDAY:
+        return [1, 2, 3, 4, 5];
+      case Const.REMINDER_FREQUENCY_WEEKEND:
+        return [6, 7];
+      case Const.REMINDER_FREQUENCY_DAILY:
+      default:
+        return [1, 2, 3, 4, 5, 6, 7];
     }
   }
 }

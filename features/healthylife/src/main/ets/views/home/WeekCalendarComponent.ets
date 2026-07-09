@@ -16,10 +16,11 @@
  */
 
 import { HomeStore, initCurrentDateInfo } from '../../viewmodel/HomeStore';
-import { CommonConstants as Const, convertStr2Date, DayInfo, formatSystemTime } from 'common';
+import { CommonConstants as Const, convertStr2Date, DayInfo, DayTaskInfo, formatSystemTime, taskBaseInfoList } from 'common';
 
 @Component
 export struct WeekCalendarComponent {
+  @Consume('pathStack') pageStack: NavPathStack;
   @Consume @Watch('onDataChange') homeStore: HomeStore;
   @State showDateStr: string = '';
   @State currentWeekIndex: number = Const.WEEK_DAY_NUM;
@@ -91,6 +92,10 @@ export struct WeekCalendarComponent {
           this.symbolBuild($r('sys.symbol.chevron_right'), async () => {
             await this.refreshDateInfo(Const.WEEK_DAY_NUM);
           })
+
+          this.symbolBuild($r('sys.symbol.calendar'), () => {
+            this.pageStack.pushPathByName('MonthCalendarComponent', this.homeStore.currentDate);
+          })
         }
 
         List({
@@ -142,11 +147,13 @@ export struct WeekCalendarComponent {
         .visibility(this.homeStore.selectedDay === index ? Visibility.Visible : Visibility.Hidden)
 
       Image(item.getProgressImg())
-        .height($r('app.float.default_28'))
+        .height($r('app.float.default_18'))
         .objectFit(ImageFit.Contain)
         .margin({
-          top: Const.THOUSANDTH_80
+          top: Const.THOUSANDTH_50
         })
+
+      this.taskProgressBars(item.date)
     }
     .width(Const.PERCENTAGE_100_EXCEPT_7)
     .justifyContent(FlexAlign.SpaceBetween)
@@ -173,5 +180,51 @@ export struct WeekCalendarComponent {
         scale: Const.SYMBOL_GLYPH_CLICK_SCALE
       })
       .onClick(clickFun)
+  }
+
+  @Builder
+  taskProgressBars(date: string) {
+    Column({ space: $r('app.float.default_1') }) {
+      ForEach(this.homeStore.getTaskListByDate(date), (item: DayTaskInfo, index: number) => {
+        Stack({ alignContent: Alignment.Start }) {
+          Row()
+            .width($r('app.float.default_18'))
+            .height($r('app.float.default_2'))
+            .borderRadius($r('app.float.default_2'))
+            .backgroundColor($r('sys.color.background_tertiary'))
+
+          Row()
+            .width(`${this.calculateTaskProgress(item)}%`)
+            .height($r('app.float.default_2'))
+            .borderRadius($r('app.float.default_2'))
+            .backgroundColor(this.getTaskProgressColor(index))
+        }
+        .width($r('app.float.default_18'))
+        .height($r('app.float.default_2'))
+      }, (item: DayTaskInfo, index: number) => `${item.date}_${item.taskId}_${index}`)
+    }
+    .height($r('app.float.default_16'))
+    .justifyContent(FlexAlign.Center)
+  }
+
+  private calculateTaskProgress(item: DayTaskInfo): number {
+    if (item.isDone) {
+      return Const.DEFAULT_100;
+    }
+    const step = taskBaseInfoList[item.taskId].step;
+    if (step === 0) {
+      return Const.DEFAULT_0;
+    }
+    const targetValue = Number(item.targetValue);
+    const finValue = Number(item.finValue || '0');
+    if (targetValue <= 0 || finValue <= 0) {
+      return Const.DEFAULT_0;
+    }
+    return Math.min(Const.DEFAULT_100, Math.ceil(finValue / targetValue * Const.DEFAULT_100));
+  }
+
+  private getTaskProgressColor(index: number): string {
+    const colorList: string[] = ['#0A59F7', '#00A870', '#FFB000', '#E84026', '#7A5AF8', '#00A3A3', '#D948AE'];
+    return colorList[index % colorList.length];
   }
 }

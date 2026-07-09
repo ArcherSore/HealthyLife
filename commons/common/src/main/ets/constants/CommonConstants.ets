@@ -101,7 +101,8 @@ export class CommonConstants {
     $r('app.string.week_shorthand_sun')
   ];
   // task info
-  static readonly TASK_NUM = 6;
+  static readonly TASK_NUM = 7;
+  static readonly TASK_RUN_ID = 6;
   static readonly PICKER_RANGE_DRINK: string[] = [
     '0.5',
     '1',
@@ -116,6 +117,26 @@ export class CommonConstants {
     '3',
     '4',
     '5'
+  ];
+  static readonly PICKER_RANGE_TIMES: string[] = [
+    '1',
+    '2',
+    '3'
+  ];
+  static readonly PICKER_RANGE_RUN: string[] = [
+    '1',
+    '2',
+    '3',
+    '4',
+    '5'
+  ];
+  static readonly REMINDER_FREQUENCY_DAILY: string = 'daily';
+  static readonly REMINDER_FREQUENCY_WEEKDAY: string = 'weekday';
+  static readonly REMINDER_FREQUENCY_WEEKEND: string = 'weekend';
+  static readonly REMINDER_FREQUENCY_LIST: string[] = [
+    'daily',
+    'weekday',
+    'weekend'
   ];
   // achievement info
   static readonly ACHIEVEMENT_STORE: string = 'achievementStore';

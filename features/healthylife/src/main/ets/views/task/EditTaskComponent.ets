@@ -18,8 +18,13 @@
 import { HomeStore, updateTaskList } from '../../viewmodel/HomeStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { openTargetSettingCustomDialog } from '../dialog/TargetSettingDialog';
+import { openReminderSettingCustomDialog } from '../dialog/ReminderSettingDialog';
 import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
 import { TargetSettingDialogParams } from '../../viewmodel/dialog/TargetSettingDialogParams';
+import {
+  ReminderSettingDialogParams,
+  ReminderSettingType
+} from '../../viewmodel/dialog/ReminderSettingDialogParams';
 import {
   AgentUtils,
   CommonConstants as Const,
@@ -59,7 +64,51 @@ export struct EditTaskComponent {
   @Provide taskBaseInfo: TaskBaseInfo = taskBaseInfoList[this.taskInfo.taskId];
   originalInfo: TaskInfo = this.taskInfo;
 
+  aboutToAppear(): void {
+    this.ensureReminderDefaults();
+    this.originalInfo = this.taskInfo.deepClone();
+  }
+
+  private ensureReminderDefaults() {
+    if (!this.taskBaseInfo.supportReminder) {
+      return;
+    }
+    this.taskInfo.alertStartTime =
+      this.taskInfo.alertStartTime || (this.taskBaseInfo.pickerType === PickerType.TIME ? this.taskInfo.targetValue : '08:00');
+    this.taskInfo.alertFrequency = this.taskInfo.alertFrequency || Const.REMINDER_FREQUENCY_DAILY;
+  }
+
+  private async syncReminderAgent() {
+    if (!this.taskBaseInfo.supportReminder || !this.taskInfo.isOpen) {
+      return;
+    }
+    this.ensureReminderDefaults();
+    if (this.taskInfo.isAlert) {
+      let isRequestSuccess = await RequestAuthorization.requestNotification(this.getUIContext());
+      if (!isRequestSuccess) {
+        return;
+      }
+      if (this.taskInfo.reminderId !== -1) {
+        await AgentUtils.updateAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
+        hilog.info(0x0000, TAG, `update reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
+        return;
+      }
+      let reminderId = await AgentUtils.creatAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
+      this.taskInfo.reminderId = reminderId;
+      await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
+      hilog.info(0x0000, TAG, `create reminderId successed, reminderId is ${reminderId}`);
+      return;
+    }
+    if (this.taskInfo.reminderId !== -1) {
+      AgentUtils.deleteAgent(this.taskInfo.reminderId);
+      hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
+      this.taskInfo.reminderId = -1;
+      await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
+    }
+  }
+
   async finishTaskEdit() {
+    this.ensureReminderDefaults();
     if (this.originalInfo.isTaskEqual(this.taskInfo)) {
       this.pageStack.clear(true);
       return;
@@ -75,11 +124,7 @@ export struct EditTaskComponent {
           .then(async (key: number) => {
             await DayTaskInfoApi.update(key, this.taskInfo.convert2DayTask(this.homeStore.currentDate));
           })
-        if (this.taskBaseInfo.unit === '') {
-          // update agent alerts
-          AgentUtils.updateAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
-          hilog.info(0x0000, TAG, `update reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
-        }
+        await this.syncReminderAgent();
       }
     } else {
       // the task status has changed, need to update the task information before modifying the task status.
@@ -89,23 +134,12 @@ export struct EditTaskComponent {
       }
       if (!this.taskInfo.isOpen) {
         await TaskInfoApi.openTask(this.homeStore.currentDate, this.taskInfo.taskId);
-        if (this.taskBaseInfo.unit === '') {
-          let oldTaskInfo = await TaskInfoApi.queryByKey(this.taskInfo.taskId);
-          if (oldTaskInfo) {
-            let isRequestSuccess = await RequestAuthorization.requestNotification(this.getUIContext());
-            if (isRequestSuccess) {
-              let reminderId = await AgentUtils.creatAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
-              // update reminderId
-              oldTaskInfo.reminderId = reminderId;
-              await TaskInfoApi.update(oldTaskInfo.taskId, oldTaskInfo);
-              hilog.info(0x0000, TAG, `create reminderId successed, reminderId is ${reminderId}`);
-            }
-          }
-        }
+        this.taskInfo.isOpen = true;
+        await this.syncReminderAgent();
       } else {
         await TaskInfoApi.closeTask(this.homeStore.currentDate, this.taskInfo.taskId);
         // Check the reminderId, if it exists, the proxy reminder needs to be turned off.
-        if (this.taskBaseInfo.unit === '') {
+        if (this.taskBaseInfo.supportReminder) {
           let taskInfo = await TaskInfoApi.queryByKey(this.taskInfo.taskId);
           if (taskInfo && taskInfo.reminderId !== -1) {
             AgentUtils.deleteAgent(taskInfo.reminderId);
@@ -187,6 +221,44 @@ export struct EditTaskComponent {
           }
         })
 
+        if (this.taskBaseInfo.supportReminder) {
+          Row() {
+            Text($r('app.string.reminder_enable'))
+              .fontWeight(FontWeight.Medium)
+              .fontSize($r('app.float.default_18'))
+
+            Toggle({
+              type: ToggleType.Switch,
+              isOn: this.taskInfo.isAlert
+            })
+              .width($r('app.float.default_36'))
+              .height($r('app.float.default_20'))
+              .enabled(this.taskInfo.isOpen)
+              .onChange((isOn) => {
+                this.taskInfo.isAlert = isOn;
+                if (isOn) {
+                  this.ensureReminderDefaults();
+                }
+              })
+          }
+          .width(Const.THOUSANDTH_940)
+          .justifyContent(FlexAlign.SpaceBetween)
+          .backgroundColor($r('sys.color.background_primary'))
+          .height($r('app.float.default_56'))
+          .borderRadius($r('app.float.default_16'))
+          .padding({
+            left: $r('app.float.default_12'),
+            right: $r('app.float.default_12')
+          })
+          .opacity(this.taskInfo.isOpen ? Const.ANIMATE_OPACITY_1 : 0.4)
+
+          if (this.taskInfo.isAlert) {
+            this.reminderRowBuilder($r('app.string.reminder_time'), this.taskInfo.alertStartTime, ReminderSettingType.TIME)
+            this.reminderRowBuilder($r('app.string.reminder_frequency'), this.getReminderFrequencyText(),
+              ReminderSettingType.FREQUENCY)
+          }
+        }
+
         Button() {
           Text($r('app.string.complete'))
             .fontSize($r('app.float.default_18'))
@@ -218,5 +290,53 @@ export struct EditTaskComponent {
       right:$r('app.float.default_6')
     })
     .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  private getReminderFrequencyText(): Resource {
+    switch (this.taskInfo.alertFrequency) {
+      case Const.REMINDER_FREQUENCY_WEEKDAY:
+        return $r('app.string.reminder_frequency_weekday');
+      case Const.REMINDER_FREQUENCY_WEEKEND:
+        return $r('app.string.reminder_frequency_weekend');
+      case Const.REMINDER_FREQUENCY_DAILY:
+      default:
+        return $r('app.string.reminder_frequency_daily');
+    }
+  }
+
+  @Builder
+  reminderRowBuilder(label: Resource, value: ResourceStr, settingType: ReminderSettingType) {
+    Row() {
+      Text(label)
+        .fontWeight(FontWeight.Medium)
+        .fontSize($r('app.float.default_18'))
+
+      Blank()
+
+      Text(value)
+        .fontSize($r('app.float.default_16'))
+        .fontColor($r('sys.color.font_primary'))
+        .padding({
+          right: $r('app.float.default_6')
+        })
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontColor([$r('sys.color.icon_secondary')])
+        .fontSize($r('app.float.default_28'))
+    }
+    .width(Const.THOUSANDTH_940)
+    .height($r('app.float.default_56'))
+    .borderRadius($r('app.float.default_16'))
+    .backgroundColor($r('sys.color.background_primary'))
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({
+      left: $r('app.float.default_12'),
+      right: $r('app.float.default_12')
+    })
+    .enabled(this.taskInfo.isOpen && this.taskInfo.isAlert)
+    .onClick(() => {
+      let params = new ReminderSettingDialogParams(this.taskInfo, settingType);
+      openReminderSettingCustomDialog(this.getUIContext(), params);
+    })
   }
 }

@@ -81,6 +81,10 @@
       "value": "Go to bed early"
     },
     {
+      "name": "task_run",
+      "value": "Run 1 km"
+    },
+    {
       "name": "clock_in",
       "value": "Clock"
     },
@@ -195,6 +199,34 @@
     {
       "name": "unit_times",
       "value": "times"
+    },
+    {
+      "name": "unit_kilometer",
+      "value": "km"
+    },
+    {
+      "name": "reminder_enable",
+      "value": "Enable reminder"
+    },
+    {
+      "name": "reminder_time",
+      "value": "Reminder time"
+    },
+    {
+      "name": "reminder_frequency",
+      "value": "Reminder frequency"
+    },
+    {
+      "name": "reminder_frequency_daily",
+      "value": "Daily"
+    },
+    {
+      "name": "reminder_frequency_weekday",
+      "value": "Weekdays"
+    },
+    {
+      "name": "reminder_frequency_weekend",
+      "value": "Weekends"
     },
     {
       "name": "unit_pre_day",

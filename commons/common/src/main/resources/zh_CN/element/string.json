@@ -81,6 +81,10 @@
       "value": "早睡"
     },
     {
+      "name": "task_run",
+      "value": "跑步1公里"
+    },
+    {
       "name": "clock_in",
       "value": "打卡"
     },
@@ -195,6 +199,34 @@
     {
       "name": "unit_times",
       "value": "次"
+    },
+    {
+      "name": "unit_kilometer",
+      "value": "公里"
+    },
+    {
+      "name": "reminder_enable",
+      "value": "开启提醒"
+    },
+    {
+      "name": "reminder_time",
+      "value": "提醒时间"
+    },
+    {
+      "name": "reminder_frequency",
+      "value": "提醒频率"
+    },
+    {
+      "name": "reminder_frequency_daily",
+      "value": "每天"
+    },
+    {
+      "name": "reminder_frequency_weekday",
+      "value": "工作日"
+    },
+    {
+      "name": "reminder_frequency_weekend",
+      "value": "周末"
     },
     {
       "name": "unit_pre_day",

@@ -16,6 +16,11 @@
       "buildFunction": "editTaskBuilder"
     },
     {
+      "name": "MonthCalendarComponent",
+      "pageSourceFile": "src/main/ets/views/home/MonthCalendarComponent.ets",
+      "buildFunction": "monthCalendarBuilder"
+    },
+    {
       "name": "AchievementComponent",
       "pageSourceFile": "src/main/ets/views/AchievementComponent.ets",
       "buildFunction": "achBuilder"
