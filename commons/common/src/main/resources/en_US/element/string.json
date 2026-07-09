@@ -335,6 +335,26 @@
     {
       "name": "clock_in_continue",
       "value": "Continue"
+    },
+    {
+      "name": "remove_task",
+      "value": "Remove"
+    },
+    {
+      "name": "remove_task_dialog_title",
+      "value": "Remove task?"
+    },
+    {
+      "name": "remove_task_dialog_message",
+      "value": "After removal, this task will be hidden from the task list. Related reminders and historical check-in records will also be cleared."
+    },
+    {
+      "name": "remove_task_success",
+      "value": "Task removed"
+    },
+    {
+      "name": "remove_task_failed",
+      "value": "Failed to remove. Please try again later"
     }
   ]
 }

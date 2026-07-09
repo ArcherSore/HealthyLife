@@ -335,6 +335,26 @@
     {
       "name": "clock_in_continue",
       "value": "继续打卡"
+    },
+    {
+      "name": "remove_task",
+      "value": "移除"
+    },
+    {
+      "name": "remove_task_dialog_title",
+      "value": "移除任务？"
+    },
+    {
+      "name": "remove_task_dialog_message",
+      "value": "移除后，该任务将从任务列表中隐藏，相关提醒和历史打卡记录也会同步清理。"
+    },
+    {
+      "name": "remove_task_success",
+      "value": "已移除任务"
+    },
+    {
+      "name": "remove_task_failed",
+      "value": "移除失败，请稍后重试"
     }
   ]
 }
