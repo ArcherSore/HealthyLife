@@ -10,3 +10,15 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+
+# Local Codex/agent files
+/.codex/
+/.agents/
+/AGENTS.md
+/scripts/
+
+# UITest and local layout dump artifacts
+/.codex/test-artifacts/
+/smoke_layout_*.json
+**/layout_*.json
+**/*_layout_*.json
