@@ -23,11 +23,13 @@ import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
 import { AchievementStore, initAchievementStore } from '../viewmodel/AchievementStore';
 import { HomeStore } from '../viewmodel/HomeStore';
 import { common } from '@kit.AbilityKit';
+import { initUserProfileStore, UserProfileStore } from '../viewmodel/UserProfileStore';
 
 @Component
 export struct HealthyLifePage {
   @State currentIndex: number = 0;
   @Provide achievementStore: AchievementStore = new AchievementStore(0, 0, false, new Array<number>(7).fill(0));
+  @Provide userProfileStore: UserProfileStore = new UserProfileStore();
   @Provide('pathStack') pageStack: NavPathStack = new NavPathStack();
   @Provide homeStore: HomeStore = new HomeStore([], -1, '', []);
   private context = this.getUIContext()?.getHostContext() as common.UIAbilityContext;
@@ -45,6 +47,7 @@ export struct HealthyLifePage {
     }
     await DayInfoApi.initDayInfo(convertDate2Str(new Date()));
     this.achievementStore = await initAchievementStore();
+    this.userProfileStore = await initUserProfileStore();
   }
 
   build() {

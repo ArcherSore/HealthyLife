@@ -55,6 +55,9 @@ export struct MineComponent {
         .margin({
           top: $r('app.float.default_6')
         })
+        .onClick(() => {
+          this.pageStack.pushPathByName('UserProfileComponent', '');
+        })
 
         Divider()
           .color($r('app.float.default_1'))

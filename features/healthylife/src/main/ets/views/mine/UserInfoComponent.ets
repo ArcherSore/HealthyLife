@@ -16,20 +16,62 @@
  */
 
 import { CommonConstants as Const } from 'common';
+import { UserProfileStore } from '../../viewmodel/UserProfileStore';
 
 @Reusable
 @Component
 export struct UserInfoComponent {
+  @Consume('pathStack') pageStack: NavPathStack;
+  @Consume userProfileStore: UserProfileStore;
+
   build() {
     Row({ space: $r('app.float.default_12') }) {
-      Image($r('app.media.person_crop_circle'))
-        .width($r('app.float.default_48'))
-        .height($r('app.float.default_48'))
+      if (this.userProfileStore.avatarUri.length > 0) {
+        Image(this.userProfileStore.avatarUri)
+          .width($r('app.float.default_48'))
+          .height($r('app.float.default_48'))
+          .borderRadius(Const.BORDER_RADIUS_PERCENT_50)
+          .objectFit(ImageFit.Cover)
+          .onClick(() => {
+            this.openAvatarEntry();
+          })
+      } else {
+        Image($r('app.media.person_crop_circle'))
+          .width($r('app.float.default_48'))
+          .height($r('app.float.default_48'))
+          .borderRadius(Const.BORDER_RADIUS_PERCENT_50)
+          .objectFit(ImageFit.Cover)
+          .onClick(() => {
+            this.openAvatarEntry();
+          })
+      }
 
-      Text($r('app.string.user_name'))
-        .fontColor($r('app.color.mine_font_color'))
-        .fontSize($r('app.float.default_18'))
-        .fontWeight(FontWeight.Medium)
+      Column() {
+        Text(this.userProfileStore.nickname)
+          .fontColor($r('app.color.mine_font_color'))
+          .fontSize($r('app.float.default_18'))
+          .fontWeight(FontWeight.Medium)
+
+        Text($r('app.string.profile_view_profile'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .fontSize($r('app.float.default_12'))
+          .margin({
+            top: $r('app.float.default_4')
+          })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(Const.FLEX_GROW_1)
+      .onClick(() => {
+        this.pageStack.pushPathByName('UserProfileComponent', '');
+      })
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontColor([$r('sys.color.icon_fourth')])
+        .fontWeight(FontWeight.Normal)
+        .fontSize($r('app.float.default_24'))
+        .onClick(() => {
+          this.pageStack.pushPathByName('UserProfileComponent', '');
+        })
     }
     .width(Const.THOUSANDTH_940)
     .height(Const.THOUSANDTH_130)
@@ -42,5 +84,13 @@ export struct UserInfoComponent {
     .margin({
       bottom: $r('app.float.default_6')
     })
+  }
+
+  private openAvatarEntry(): void {
+    if (this.userProfileStore.avatarUri.length > 0) {
+      this.pageStack.pushPathByName('AvatarPreviewComponent', '');
+      return;
+    }
+    this.pageStack.pushPathByName('UserProfileComponent', '');
   }
 }

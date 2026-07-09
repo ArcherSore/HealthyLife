@@ -24,6 +24,16 @@
       "name": "AchievementComponent",
       "pageSourceFile": "src/main/ets/views/AchievementComponent.ets",
       "buildFunction": "achBuilder"
+    },
+    {
+      "name": "UserProfileComponent",
+      "pageSourceFile": "src/main/ets/views/UserProfileComponent.ets",
+      "buildFunction": "userProfileBuilder"
+    },
+    {
+      "name": "AvatarPreviewComponent",
+      "pageSourceFile": "src/main/ets/views/UserProfileComponent.ets",
+      "buildFunction": "avatarPreviewBuilder"
     }
   ]
 }

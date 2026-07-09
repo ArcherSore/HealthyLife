@@ -189,6 +189,94 @@
       "value": "这是一条简短的个人签名"
     },
     {
+      "name": "profile_title",
+      "value": "个人资料"
+    },
+    {
+      "name": "profile_avatar",
+      "value": "头像"
+    },
+    {
+      "name": "profile_change_avatar",
+      "value": "点击更换头像"
+    },
+    {
+      "name": "profile_view_avatar",
+      "value": "查看头像"
+    },
+    {
+      "name": "profile_select_from_gallery",
+      "value": "从图库选择"
+    },
+    {
+      "name": "profile_restore_default_avatar",
+      "value": "恢复默认头像"
+    },
+    {
+      "name": "profile_avatar_select_failed",
+      "value": "头像选择失败"
+    },
+    {
+      "name": "profile_nickname",
+      "value": "昵称"
+    },
+    {
+      "name": "profile_nickname_placeholder",
+      "value": "请输入昵称"
+    },
+    {
+      "name": "profile_nickname_empty",
+      "value": "昵称不能为空"
+    },
+    {
+      "name": "profile_gender",
+      "value": "性别"
+    },
+    {
+      "name": "profile_gender_male",
+      "value": "男"
+    },
+    {
+      "name": "profile_gender_female",
+      "value": "女"
+    },
+    {
+      "name": "profile_gender_secret",
+      "value": "保密"
+    },
+    {
+      "name": "profile_birthday",
+      "value": "出生日期"
+    },
+    {
+      "name": "profile_height",
+      "value": "身高"
+    },
+    {
+      "name": "profile_height_placeholder",
+      "value": "请输入身高"
+    },
+    {
+      "name": "profile_weight",
+      "value": "体重"
+    },
+    {
+      "name": "profile_weight_placeholder",
+      "value": "请输入体重"
+    },
+    {
+      "name": "profile_unfilled",
+      "value": "未填写"
+    },
+    {
+      "name": "profile_number_invalid",
+      "value": "请输入合理的数字"
+    },
+    {
+      "name": "profile_view_profile",
+      "value": "查看和编辑个人资料"
+    },
+    {
       "name": "unit_liter",
       "value": "L"
     },

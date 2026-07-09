@@ -189,6 +189,94 @@
       "value": "This is a short personal signature"
     },
     {
+      "name": "profile_title",
+      "value": "Personal profile"
+    },
+    {
+      "name": "profile_avatar",
+      "value": "Avatar"
+    },
+    {
+      "name": "profile_change_avatar",
+      "value": "Tap to change avatar"
+    },
+    {
+      "name": "profile_view_avatar",
+      "value": "View avatar"
+    },
+    {
+      "name": "profile_select_from_gallery",
+      "value": "Choose from gallery"
+    },
+    {
+      "name": "profile_restore_default_avatar",
+      "value": "Restore default avatar"
+    },
+    {
+      "name": "profile_avatar_select_failed",
+      "value": "Failed to choose avatar"
+    },
+    {
+      "name": "profile_nickname",
+      "value": "Nickname"
+    },
+    {
+      "name": "profile_nickname_placeholder",
+      "value": "Enter nickname"
+    },
+    {
+      "name": "profile_nickname_empty",
+      "value": "Nickname cannot be empty"
+    },
+    {
+      "name": "profile_gender",
+      "value": "Gender"
+    },
+    {
+      "name": "profile_gender_male",
+      "value": "Male"
+    },
+    {
+      "name": "profile_gender_female",
+      "value": "Female"
+    },
+    {
+      "name": "profile_gender_secret",
+      "value": "Private"
+    },
+    {
+      "name": "profile_birthday",
+      "value": "Birthday"
+    },
+    {
+      "name": "profile_height",
+      "value": "Height"
+    },
+    {
+      "name": "profile_height_placeholder",
+      "value": "Enter height"
+    },
+    {
+      "name": "profile_weight",
+      "value": "Weight"
+    },
+    {
+      "name": "profile_weight_placeholder",
+      "value": "Enter weight"
+    },
+    {
+      "name": "profile_unfilled",
+      "value": "Not set"
+    },
+    {
+      "name": "profile_number_invalid",
+      "value": "Enter a valid number"
+    },
+    {
+      "name": "profile_view_profile",
+      "value": "View and edit profile"
+    },
+    {
       "name": "unit_liter",
       "value": "L"
     },
