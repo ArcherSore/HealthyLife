@@ -52,6 +52,10 @@ export struct TaskListComponent {
       })
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.PARENT_FIRST
+      })
       .onScrollStart(() => {
         this.closeSwipeActions();
       })
