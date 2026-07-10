@@ -292,7 +292,6 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       while (resultSet.goToNextRow()) {
         result.push(this.convertResultSet2Entity(resultSet));
       }
-      resultSet.close();
       hilog.info(0x0000, TAG, `Query all task is successful, query result is ${result.toString()}`);
       resultSet.close();
     }).catch((err: BusinessError) => {
@@ -319,7 +318,6 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       while (resultSet.goToNextRow()) {
         result.push(this.convertResultSet2Entity(resultSet));
       }
-      resultSet.close();
       hilog.info(0x0000, TAG, `Query opened task is successful, query result is ${result.toString()}`);
       resultSet.close();
     }).catch((err: BusinessError) => {
@@ -496,9 +494,10 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     }
     let result = true;
     if (oldTaskInfo.reminderId !== -1) {
-      result = await AgentUtils.deleteAgent(oldTaskInfo.reminderId);
-      if (!result) {
-        return false;
+      let deleted = await AgentUtils.deleteAgent(oldTaskInfo.reminderId);
+      if (!deleted) {
+        hilog.error(0x0000, TAG,
+          `Failed to delete reminder agent ${oldTaskInfo.reminderId} for task ${taskId}, proceeding with close`);
       }
     }
     oldTaskInfo.isOpen = false;
@@ -506,6 +505,7 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     oldTaskInfo.reminderId = -1;
     oldTaskInfo.finValue = '';
     oldTaskInfo.isDone = false;
+    oldTaskInfo.scheduleStartDate = '';
     result = await this.update(taskId, oldTaskInfo);
     if (!result) {
       return false;
@@ -520,9 +520,16 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     if (!result) {
       return false;
     }
-    result = await this.syncTaskForRemainingWeek(date, oldTaskInfo);
 
-    return result;
+    // Delete all future DayTask rows beyond today (covers next week etc.)
+    let affectedDates = await DayTaskInfoApi.deleteByTaskIdFromDate(date, taskId);
+    for (let affectedDate of affectedDates) {
+      if (!await DayInfoApi.updateDayByTaskStatus(affectedDate)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   async skipTaskForDate(date: string, taskId: number): Promise<boolean> {

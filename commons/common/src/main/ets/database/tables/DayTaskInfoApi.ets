@@ -99,6 +99,40 @@ class DayTaskInfoApi implements TableApi<DayTaskInfo> {
     return result;
   }
 
+  async deleteByTaskIdFromDate(date: string, taskId: number): Promise<string[]> {
+    let affectedDates: string[] = [];
+    let predicates = new relationalStore.RdbPredicates(TABLE_NAME);
+    predicates.greaterThan('date', date);
+    predicates.equalTo('taskId', taskId);
+    await RdbUtils.rdbStore?.query(predicates).then((resultSet: relationalStore.ResultSet) => {
+      while (resultSet.goToNextRow()) {
+        let d = resultSet.getValue(resultSet.getColumnIndex('date')) as string;
+        if (!affectedDates.includes(d)) {
+          affectedDates.push(d);
+        }
+      }
+      resultSet.close();
+    }).catch((err: BusinessError) => {
+      hilog.error(0x0000, TAG,
+        `Query future dayTask failed, date is ${date}, taskId is ${taskId}, code is ${err.code}, message is ${err.message}`);
+    });
+    if (affectedDates.length === 0) {
+      return affectedDates;
+    }
+    let delPredicates = new relationalStore.RdbPredicates(TABLE_NAME);
+    delPredicates.greaterThan('date', date);
+    delPredicates.equalTo('taskId', taskId);
+    await RdbUtils.rdbStore?.delete(delPredicates).then((rows: number) => {
+      hilog.info(0x0000, TAG,
+        `Delete future dayTask successful, date > ${date}, taskId is ${taskId}, affected rows is ${rows}`);
+    }).catch((err: BusinessError) => {
+      hilog.error(0x0000, TAG,
+        `Delete future dayTask failed, date > ${date}, taskId is ${taskId}, code is ${err.code}, message is ${err.message}`);
+      affectedDates = [];
+    });
+    return affectedDates;
+  }
+
   async update(primaryKey: number, data: DayTaskInfo): Promise<boolean> {
     let result = true;
     const valueBucket = this.convertEntity2ValuesBucket(data, true);

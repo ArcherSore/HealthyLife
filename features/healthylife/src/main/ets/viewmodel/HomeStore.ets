@@ -20,6 +20,7 @@ import {
 } from 'common';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
 import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
+import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 
 /*
  * Global day and tasks information storage.
@@ -84,6 +85,11 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
 export async function updateTaskList(homeStore: HomeStore): Promise<void> {
   for (let index = 0; index < homeStore.weekList.length; index++) {
     const dateStr = homeStore.weekList[index].date;
+    // Only generate missing DayTask rows for future dates.
+    // Today's state is managed by explicit user actions (skip, close, clock).
+    if (dateStr > homeStore.currentDate) {
+      await TaskInfoApi.generateScheduledTasksForDate(dateStr);
+    }
     let dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
     homeStore.weekList[index] = await syncDayInfoWithTasks(dateStr, dayTaskList);
     homeStore.weekTaskMap[dateStr] = dayTaskList;
