@@ -7,9 +7,10 @@ export class AchievementDialogParams {
   opacityValue: number = 0;
   angle: number = 0;
   scaleValue: number = 0;
+  autoClose: boolean = false;
 
   constructor(uiContext: UIContext, index: number, medalType: string, taskId: number,
-    opacityValue: number, angle: number, scaleValue: number) {
+    opacityValue: number, angle: number, scaleValue: number, autoClose: boolean = false) {
     this.uiContext = uiContext;
     this.index = index;
     this.medalType = medalType;
@@ -17,5 +18,6 @@ export class AchievementDialogParams {
     this.opacityValue = opacityValue;
     this.angle = angle;
     this.scaleValue = scaleValue;
+    this.autoClose = autoClose;
   }
 }

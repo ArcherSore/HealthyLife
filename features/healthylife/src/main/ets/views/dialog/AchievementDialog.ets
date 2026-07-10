@@ -5,10 +5,10 @@ import { CommonConstants as Const, PromptActionClass, taskBaseInfoList } from 'c
 import { AchievementDialogParams } from '../../viewmodel/dialog/AchievementDialogParams';
 
 export function openAchievementCustomDialog(uIContext: UIContext, index: number, medalType: string,
-  taskId: number): void {
+  taskId: number, autoClose: boolean = false): void {
   PromptActionClass.setContext(uIContext);
   let params = new AchievementDialogParams(uIContext, index, medalType, taskId,
-    Const.ANIMATE_OPACITY_0, Const.ANIMATE_ANGLE_0, Const.ANIMATE_SCALE_0);
+    Const.ANIMATE_OPACITY_0, Const.ANIMATE_ANGLE_0, Const.ANIMATE_SCALE_0, autoClose);
   let taskInfoDialogNode = new ComponentContent(uIContext, wrapBuilder(taskInfoDialogBuilder), params);
   PromptActionClass.setContentNode(taskInfoDialogNode);
   PromptActionClass.openDialog();
@@ -68,8 +68,14 @@ export function taskInfoDialogBuilder(param: AchievementDialogParams) {
     }, () => {
       PromptActionClass.contentNode.update(
         new AchievementDialogParams(param.uiContext, param.index, param.medalType, param.taskId,
-          Const.ANIMATE_OPACITY_1, Const.ANIMATE_ANGLE_360, Const.ANIMATE_SCALE_1));
+          Const.ANIMATE_OPACITY_1, Const.ANIMATE_ANGLE_360, Const.ANIMATE_SCALE_1, param.autoClose));
     });
+
+    if (param.autoClose) {
+      setTimeout(() => {
+        PromptActionClass.closeDialog();
+      }, 3000);
+    }
   })
 }
 

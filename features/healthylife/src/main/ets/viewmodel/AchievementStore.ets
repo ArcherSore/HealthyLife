@@ -128,7 +128,7 @@ export async function syncStreaksFromDb(store: AchievementStore, uIContext: UICo
     if (isNewAchievement) {
       const achievementDoneIndex = getAchievementDoneIndex(maxStreak);
       if (achievementDoneIndex !== -1) {
-        openAchievementCustomDialog(uIContext, achievementDoneIndex, 'global', -1);
+        openAchievementCustomDialog(uIContext, achievementDoneIndex, 'global', -1, true);
       }
     }
   }
@@ -200,7 +200,7 @@ export async function syncTaskOverAchievementDb(store: AchievementStore, uIConte
       if (newPercentage >= thresholds[i] && oldPercentage < thresholds[i]) {
         const overIndex = getTaskOverAchievementDoneIndex(taskId, thresholds[i]);
         if (overIndex !== -1) {
-          openAchievementCustomDialog(uIContext, overIndex, 'taskOverAchievement', taskId);
+          openAchievementCustomDialog(uIContext, overIndex, 'taskOverAchievement', taskId, true);
         }
       }
     }
