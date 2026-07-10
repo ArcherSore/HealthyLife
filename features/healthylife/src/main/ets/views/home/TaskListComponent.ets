@@ -85,7 +85,14 @@ export struct TaskListComponent {
   taskListItemBuilder(item: DayTaskInfo, _index: number) {
     if (this.homeStore.checkCurrentDay()) {
       ListItem() {
-        this.taskCardBuilder(item)
+        TaskCardComponent({
+          item: item,
+          clickCallback: () => {
+            this.closeSwipeActions();
+            let params = new TaskInfoDialogParams(item, this.homeStore, this.achievementStore, this.getUIContext());
+            openTaskClockCustomDialog(this.getUIContext(), params);
+          }
+        })
       }
       .transition(TransitionEffect.OPACITY)
       .swipeAction({
@@ -98,53 +105,12 @@ export struct TaskListComponent {
       })
     } else {
       ListItem() {
-        this.taskCardBuilder(item)
-      }
-    }
-  }
-
-  @Builder
-  taskCardBuilder(item: DayTaskInfo) {
-    Row() {
-      Image(taskBaseInfoList[item.taskId].icon)
-        .width($r('app.float.default_36'))
-        .height($r('app.float.default_36'))
-        .objectFit(ImageFit.Contain)
-        .margin({
-          right: $r('app.float.default_8')
+        TaskCardComponent({
+          item: item,
+          clickCallback: () => {}
         })
-
-      Text(taskBaseInfoList[item.taskId].name)
-        .fontFamily(Const.HARMONY_HEI_TI_MEDIUM)
-        .fontWeight(FontWeight.Regular)
-        .fontColor($r(`sys.color.font_primary`))
-        .fontSize($r('app.float.default_16'))
-
-      Blank()
-
-      this.targetValueBuilder(item)
+      }
     }
-    .width(Const.THOUSANDTH_1000)
-    .height($r('app.float.default_62'))
-    .borderRadius($r('app.float.default_16'))
-    .padding({
-      left: Const.THOUSANDTH_50,
-      right: Const.THOUSANDTH_50
-    })
-    .backgroundColor($r('sys.color.background_primary'))
-    .onClick(() => {
-      if (this.homeStore.checkCurrentDay()) {
-        this.closeSwipeActions();
-        let params = new TaskInfoDialogParams(item, this.homeStore, this.achievementStore, this.getUIContext());
-        openTaskClockCustomDialog(this.getUIContext(), params);
-      }
-    })
-    .gesture(LongPressGesture().onAction(async () => {
-      if (this.homeStore.checkCurrentDay()) {
-        let taskInfo = await TaskInfoApi.queryByKey(item.taskId);
-        this.pageStack.pushPath({ name: 'EditTaskComponent', param: taskInfo });
-      }
-    }))
   }
 
   @Builder
@@ -236,6 +202,197 @@ export struct TaskListComponent {
   private getTaskListHeight(): string {
     let taskCount = this.homeStore.taskList.length;
     return `${taskCount * this.TASK_CARD_HEIGHT + (taskCount - 1) * this.TASK_CARD_SPACE}vp`;
+  }
+}
+
+@Component
+struct TaskCardComponent {
+  @Prop @Watch('drawProgress') item: DayTaskInfo;
+  @Consume('pathStack') pageStack: NavPathStack;
+  @Consume homeStore: HomeStore;
+  @Consume achievementStore: AchievementStore;
+
+  private settings: RenderingContextSettings = new RenderingContextSettings(true);
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+  @State cardWidthVp: number = 0;
+  @State cardHeightVp: number = 0;
+  private isReady: boolean = false;
+  clickCallback: () => void = () => {};
+
+  drawProgress() {
+    const ctx = this.context;
+    const w = this.cardWidthVp;
+    const h = this.cardHeightVp;
+    if (w <= 0 || h <= 0 || !this.isReady) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, w, h);
+
+    const progress = this.calculateTaskProgress(this.item);
+    if (progress <= 0) {
+      return;
+    }
+
+    const r = 16;
+    const strokeWidth = 3;
+
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = Const.getTaskColor(this.item.taskId);
+    ctx.lineCap = 'round';
+
+    const offset = strokeWidth / 2;
+    const w_in = w - strokeWidth;
+    const h_in = h - strokeWidth;
+    const r_in = r - offset;
+
+    const L1 = h_in / 2 - r_in;
+    const L2 = Math.PI * r_in / 2;
+    const L3 = w_in - 2 * r_in;
+    const L4 = Math.PI * r_in / 2;
+    const L5 = h_in / 2 - r_in;
+
+    const halfPerimeter = L1 + L2 + L3 + L4 + L5;
+    const targetLen = halfPerimeter * (Math.min(100, progress) / 100);
+
+    // 1. Draw top half (normal)
+    ctx.save();
+    ctx.beginPath();
+    this.drawSymmetricPath(ctx, w, h, r, strokeWidth, targetLen, L1, L2, L3, L4);
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Draw bottom half (mirrored)
+    ctx.save();
+    ctx.translate(0, h);
+    ctx.scale(1, -1);
+    ctx.beginPath();
+    this.drawSymmetricPath(ctx, w, h, r, strokeWidth, targetLen, L1, L2, L3, L4);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawSymmetricPath(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    r: number,
+    strokeWidth: number,
+    targetLen: number,
+    L1: number,
+    L2: number,
+    L3: number,
+    L4: number
+  ) {
+    const offset = strokeWidth / 2;
+    const r_in = r - offset;
+
+    ctx.moveTo(offset, h / 2);
+
+    if (targetLen <= L1) {
+      ctx.lineTo(offset, h / 2 - targetLen);
+      return;
+    }
+    ctx.lineTo(offset, offset + r_in);
+
+    if (targetLen <= L1 + L2) {
+      const dTheta = (targetLen - L1) / r_in;
+      ctx.arc(offset + r_in, offset + r_in, r_in, Math.PI, Math.PI + dTheta, false);
+      return;
+    }
+    ctx.arc(offset + r_in, offset + r_in, r_in, Math.PI, 1.5 * Math.PI, false);
+
+    if (targetLen <= L1 + L2 + L3) {
+      ctx.lineTo(offset + r_in + (targetLen - L1 - L2), offset);
+      return;
+    }
+    ctx.lineTo(w - offset - r_in, offset);
+
+    if (targetLen <= L1 + L2 + L3 + L4) {
+      const dTheta = (targetLen - L1 - L2 - L3) / r_in;
+      ctx.arc(w - offset - r_in, offset + r_in, r_in, 1.5 * Math.PI, 1.5 * Math.PI + dTheta, false);
+      return;
+    }
+    ctx.arc(w - offset - r_in, offset + r_in, r_in, 1.5 * Math.PI, 2.0 * Math.PI, false);
+
+    const remaining = targetLen - L1 - L2 - L3 - L4;
+    ctx.lineTo(w - offset, offset + r_in + remaining);
+  }
+
+  private calculateTaskProgress(item: DayTaskInfo): number {
+    if (item.isDone) {
+      return Const.DEFAULT_100;
+    }
+    const step = taskBaseInfoList[item.taskId].step;
+    if (step === 0) {
+      return Const.DEFAULT_0;
+    }
+    const targetValue = Number(item.targetValue);
+    const finValue = Number(item.finValue || '0');
+    if (targetValue <= 0 || finValue <= 0) {
+      return Const.DEFAULT_0;
+    }
+    return Math.min(Const.DEFAULT_100, Math.ceil(finValue / targetValue * Const.DEFAULT_100));
+  }
+
+  build() {
+    Stack() {
+      // 1. Main Row Layout
+      Row() {
+        Image(taskBaseInfoList[this.item.taskId].icon)
+          .width($r('app.float.default_36'))
+          .height($r('app.float.default_36'))
+          .objectFit(ImageFit.Contain)
+          .margin({
+            right: $r('app.float.default_8')
+          })
+
+        Text(taskBaseInfoList[this.item.taskId].name)
+          .fontFamily(Const.HARMONY_HEI_TI_MEDIUM)
+          .fontWeight(FontWeight.Regular)
+          .fontColor($r(`sys.color.font_primary`))
+          .fontSize($r('app.float.default_16'))
+
+        Blank()
+
+        this.targetValueBuilder(this.item)
+      }
+      .width(Const.THOUSANDTH_1000)
+      .height($r('app.float.default_62'))
+      .borderRadius($r('app.float.default_16'))
+      .padding({
+        left: Const.THOUSANDTH_50,
+        right: Const.THOUSANDTH_50
+      })
+      .backgroundColor($r('sys.color.background_primary'))
+
+      // 2. Transparent Canvas overlay for border progress (on top)
+      Canvas(this.context)
+        .width(Const.THOUSANDTH_1000)
+        .height($r('app.float.default_62'))
+        .hitTestBehavior(HitTestMode.None)
+        .onReady(() => {
+          this.isReady = true;
+          this.drawProgress();
+        })
+    }
+    .width(Const.THOUSANDTH_1000)
+    .height($r('app.float.default_62'))
+    .borderRadius($r('app.float.default_16'))
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.cardWidthVp = newValue.width as number;
+      this.cardHeightVp = newValue.height as number;
+      this.drawProgress();
+    })
+    .onClick(() => {
+      this.clickCallback();
+    })
+    .gesture(LongPressGesture().onAction(async () => {
+      if (this.homeStore.checkCurrentDay()) {
+        let taskInfo = await TaskInfoApi.queryByKey(this.item.taskId);
+        this.pageStack.pushPath({ name: 'EditTaskComponent', param: taskInfo });
+      }
+    }))
   }
 
   @Builder

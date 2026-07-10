@@ -156,7 +156,24 @@ export struct WeekCalendarComponent {
           top: Const.THOUSANDTH_50
         })
 
-      this.taskProgressBars(item.date)
+      Stack({ alignContent: Alignment.Start }) {
+        Row()
+          .width($r('app.float.default_18'))
+          .height($r('app.float.default_2'))
+          .borderRadius($r('app.float.default_2'))
+          .backgroundColor($r('sys.color.background_tertiary'))
+
+        Row()
+          .width(`${item.calculatePercentage()}%`)
+          .height($r('app.float.default_2'))
+          .borderRadius($r('app.float.default_2'))
+          .backgroundColor($r('sys.color.brand'))
+      }
+      .width($r('app.float.default_18'))
+      .height($r('app.float.default_2'))
+      .margin({
+        top: $r('app.float.default_4')
+      })
     }
     .width(Const.PERCENTAGE_100_EXCEPT_7)
     .justifyContent(FlexAlign.SpaceBetween)
@@ -183,51 +200,5 @@ export struct WeekCalendarComponent {
         scale: Const.SYMBOL_GLYPH_CLICK_SCALE
       })
       .onClick(clickFun)
-  }
-
-  @Builder
-  taskProgressBars(date: string) {
-    Column({ space: $r('app.float.default_1') }) {
-      ForEach(this.homeStore.getTaskListByDate(date), (item: DayTaskInfo, index: number) => {
-        Stack({ alignContent: Alignment.Start }) {
-          Row()
-            .width($r('app.float.default_18'))
-            .height($r('app.float.default_2'))
-            .borderRadius($r('app.float.default_2'))
-            .backgroundColor($r('sys.color.background_tertiary'))
-
-          Row()
-            .width(`${this.calculateTaskProgress(item)}%`)
-            .height($r('app.float.default_2'))
-            .borderRadius($r('app.float.default_2'))
-            .backgroundColor(this.getTaskProgressColor(index))
-        }
-        .width($r('app.float.default_18'))
-        .height($r('app.float.default_2'))
-      }, (item: DayTaskInfo, index: number) => `${item.date}_${item.taskId}_${index}`)
-    }
-    .height($r('app.float.default_16'))
-    .justifyContent(FlexAlign.Center)
-  }
-
-  private calculateTaskProgress(item: DayTaskInfo): number {
-    if (item.isDone) {
-      return Const.DEFAULT_100;
-    }
-    const step = taskBaseInfoList[item.taskId].step;
-    if (step === 0) {
-      return Const.DEFAULT_0;
-    }
-    const targetValue = Number(item.targetValue);
-    const finValue = Number(item.finValue || '0');
-    if (targetValue <= 0 || finValue <= 0) {
-      return Const.DEFAULT_0;
-    }
-    return Math.min(Const.DEFAULT_100, Math.ceil(finValue / targetValue * Const.DEFAULT_100));
-  }
-
-  private getTaskProgressColor(index: number): string {
-    const colorList: string[] = ['#0A59F7', '#00A870', '#FFB000', '#E84026', '#7A5AF8', '#00A3A3', '#D948AE'];
-    return colorList[index % colorList.length];
   }
 }

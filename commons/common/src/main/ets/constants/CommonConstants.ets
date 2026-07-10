@@ -168,4 +168,20 @@ export class CommonConstants {
   static readonly DEFAULT_DIMENSION_2X4 = 3;
   static readonly FORM_NAME_AGENCY = "agency";
   static readonly FORM_NAME_PROGRESS = "progress";
+  // Task colors mapping (matching taskId)
+  static readonly TASK_COLOR_LIST: string[] = [
+    '#FF9F0A', // id 0: Get up (Warm Sun Orange/Amber)
+    '#0A59F7', // id 1: Drink water (Ocean Blue)
+    '#E84026', // id 2: Eat Apple (Apple Red)
+    '#FFCC00', // id 3: Smile (Warm Yellow)
+    '#00D2C4', // id 4: Brush (Mint Teal)
+    '#7A5AF8', // id 5: Sleep (Night Purple)
+    '#00A870', // id 6: Run (Sports Green)
+  ];
+  static getTaskColor(taskId: number): string {
+    if (taskId < 0 || taskId >= CommonConstants.TASK_COLOR_LIST.length) {
+      return '#0A59F7';
+    }
+    return CommonConstants.TASK_COLOR_LIST[taskId];
+  }
 }

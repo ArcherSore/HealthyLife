@@ -182,17 +182,39 @@ export struct MonthCalendarComponent {
         .fontSize($r('app.float.default_14'))
         .fontColor(item.inCurrentMonth ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
         .fontWeight(FontWeight.Medium)
+        .margin({
+          top: $r('app.float.default_8')
+        })
 
-      Image(item.dayInfo.getProgressImg())
-        .height($r('app.float.default_14'))
-        .objectFit(ImageFit.Contain)
-        .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4)
+      Column({ space: $r('app.float.default_4') }) {
+        Image(item.dayInfo.getProgressImg())
+          .height($r('app.float.default_18'))
+          .objectFit(ImageFit.Contain)
+          .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4)
 
-      this.taskProgressBars(item.taskList)
+        Stack({ alignContent: Alignment.Start }) {
+          Row()
+            .width($r('app.float.default_18'))
+            .height($r('app.float.default_2'))
+            .borderRadius($r('app.float.default_2'))
+            .backgroundColor($r('sys.color.background_tertiary'))
+
+          Row()
+            .width(`${item.dayInfo.calculatePercentage()}%`)
+            .height($r('app.float.default_2'))
+            .borderRadius($r('app.float.default_2'))
+            .backgroundColor($r('sys.color.brand'))
+        }
+        .width($r('app.float.default_18'))
+        .height($r('app.float.default_2'))
+      }
+      .margin({
+        top: $r('app.float.default_6')
+      })
     }
     .width(Const.PERCENTAGE_100_EXCEPT_7)
     .height(Const.THOUSANDTH_1000)
-    .justifyContent(FlexAlign.SpaceAround)
+    .justifyContent(FlexAlign.Start)
     .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.45)
   }
 
@@ -202,51 +224,5 @@ export struct MonthCalendarComponent {
         taskList.push(taskInfo.convert2DefaultDayTask(date));
       }
     }
-  }
-
-  @Builder
-  taskProgressBars(taskList: DayTaskInfo[]) {
-    Column({ space: $r('app.float.default_1') }) {
-      ForEach(taskList, (item: DayTaskInfo, index: number) => {
-        Stack({ alignContent: Alignment.Start }) {
-          Row()
-            .width($r('app.float.default_24'))
-            .height($r('app.float.default_2'))
-            .borderRadius($r('app.float.default_2'))
-            .backgroundColor($r('sys.color.background_tertiary'))
-
-          Row()
-            .width(`${this.calculateTaskProgress(item)}%`)
-            .height($r('app.float.default_2'))
-            .borderRadius($r('app.float.default_2'))
-            .backgroundColor(this.getTaskProgressColor(index))
-        }
-        .width($r('app.float.default_24'))
-        .height($r('app.float.default_2'))
-      }, (item: DayTaskInfo, index: number) => `${item.date}_${item.taskId}_${index}`)
-    }
-    .height($r('app.float.default_22'))
-    .justifyContent(FlexAlign.Center)
-  }
-
-  private calculateTaskProgress(item: DayTaskInfo): number {
-    if (item.isDone) {
-      return Const.DEFAULT_100;
-    }
-    const step = taskBaseInfoList[item.taskId].step;
-    if (step === 0) {
-      return Const.DEFAULT_0;
-    }
-    const targetValue = Number(item.targetValue);
-    const finValue = Number(item.finValue || '0');
-    if (targetValue <= 0 || finValue <= 0) {
-      return Const.DEFAULT_0;
-    }
-    return Math.min(Const.DEFAULT_100, Math.ceil(finValue / targetValue * Const.DEFAULT_100));
-  }
-
-  private getTaskProgressColor(index: number): string {
-    const colorList: string[] = ['#0A59F7', '#00A870', '#FFB000', '#E84026', '#7A5AF8', '#00A3A3', '#D948AE'];
-    return colorList[index % colorList.length];
   }
 }
