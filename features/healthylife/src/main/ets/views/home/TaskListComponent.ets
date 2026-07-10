@@ -21,6 +21,8 @@ import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { openTaskClockCustomDialog } from '../dialog/TaskClockCustomDialog';
 import { TaskInfoDialogParams } from '../../viewmodel/dialog/TaskInfoDialogParams';
 import { CommonConstants as Const, DayTaskInfo, taskBaseInfoList } from 'common';
+import { openTaskRemoveCustomDialog } from '../dialog/TaskRemoveDialog';
+import { TaskRemoveDialogParams } from '../../viewmodel/dialog/TaskRemoveDialogParams';
 
 @Component
 export struct TaskListComponent {
@@ -172,35 +174,38 @@ export struct TaskListComponent {
 
   private showRemoveConfirmDialog(item: DayTaskInfo): void {
     this.closeSwipeActions();
-    this.getUIContext().showAlertDialog({
-      title: $r('app.string.remove_task_dialog_title'),
-      message: $r('app.string.remove_task_dialog_message'),
-      autoCancel: true,
-      alignment: DialogAlignment.Center,
-      primaryButton: {
-        value: $r('app.string.cancel'),
-        action: () => {
-          this.closeSwipeActions();
-        }
-      },
-      secondaryButton: {
-        value: $r('app.string.remove_task'),
-        fontColor: $r('app.color.button_red'),
-        action: async () => {
-          await this.removeTask(item);
-        }
+    TaskInfoApi.queryByKey(item.taskId).then((taskInfo) => {
+      if (!taskInfo) {
+        this.showToast($r('app.string.remove_task_failed'));
+        return;
       }
-    })
+      const params = new TaskRemoveDialogParams(taskBaseInfoList[item.taskId].name, item.isDone,
+        taskInfo.repeatDays !== Const.REPEAT_DAYS_ONCE, () => this.skipTask(item), () => this.stopTask(item));
+      openTaskRemoveCustomDialog(this.getUIContext(), params);
+    });
   }
 
-  private async removeTask(item: DayTaskInfo): Promise<void> {
+  private async skipTask(item: DayTaskInfo): Promise<void> {
+    if (!this.homeStore.checkCurrentDay()) {
+      return;
+    }
+    let result = await TaskInfoApi.skipTaskForDate(this.homeStore.currentDate, item.taskId);
+    if (result) {
+      await updateTaskList(this.homeStore);
+      this.showToast($r('app.string.skip_today_success'));
+      return;
+    }
+    this.showToast($r('app.string.remove_task_failed'));
+  }
+
+  private async stopTask(item: DayTaskInfo): Promise<void> {
     if (!this.homeStore.checkCurrentDay()) {
       return;
     }
     let result = await TaskInfoApi.closeTask(this.homeStore.currentDate, item.taskId);
     if (result) {
       await updateTaskList(this.homeStore);
-      this.showToast($r('app.string.remove_task_success'));
+      this.showToast($r('app.string.stop_repeat_success'));
       return;
     }
     this.showToast($r('app.string.remove_task_failed'));

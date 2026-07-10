@@ -198,6 +198,30 @@ class DayInfoApi implements TableApi<DayInfo> {
     }
   }
 
+  async initDayInfosThrough(date: string): Promise<boolean> {
+    const existingTarget = await this.queryByKey(date);
+    const previousDays = await this.query(
+      `SELECT * FROM ${TABLE_NAME} WHERE date < '${date}' ORDER BY date DESC LIMIT 1`);
+    if (previousDays.length === 0) {
+      if (!existingTarget) {
+        await this.initAchievementStoreByDayInfo(date);
+      }
+      return await this.initDayInfo(date);
+    }
+    let cursor = convertStr2Date(previousDays[0].date);
+    cursor.setDate(cursor.getDate() + 1);
+    const targetDate = convertStr2Date(date);
+    while (cursor.getTime() <= targetDate.getTime()) {
+      const cursorDate = convertDate2Str(cursor);
+      await this.initAchievementStoreByDayInfo(cursorDate);
+      if (!await this.initDayInfo(cursorDate)) {
+        return false;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return true;
+  }
+
   /*
    * initialize the information of the day.
    * @param { string } date date of the day.
@@ -208,15 +232,16 @@ class DayInfoApi implements TableApi<DayInfo> {
     let currentDayInfo: DayInfo | null = await this.queryByKey(date);
 
     if (currentDayInfo) {
-      // Existing dayTaskInfo records are the source of truth. Repair stale global task status without deleting history.
       if (!await TaskInfoApi.reconcileDailyTaskState(date)) {
         return false;
       }
-      return await this.updateDayByTaskStatus(date);
+      if (!await this.updateDayByTaskStatus(date)) {
+        return false;
+      }
+      return await TaskInfoApi.syncPlansForRemainingWeek(date);
     }
 
-    // The first initialization of a new day resets only daily state and keeps task/reminder preferences.
-    if (!await TaskInfoApi.resetTasksForNewDay()) {
+    if (!await TaskInfoApi.expireOneTimePlans(date)) {
       return false;
     }
 
@@ -228,10 +253,16 @@ class DayInfoApi implements TableApi<DayInfo> {
     }
     hilog.info(0x0000, TAG, `Init current day info successed, date is ${date}`);
 
-    // After the task of the day is successfully added, the information of the day is updated synchronously.
-    await this.updateDayByTaskStatus(date);
+    if (!await TaskInfoApi.generateScheduledTasksForDate(date)) {
+      return false;
+    }
+    await TaskInfoApi.reconcileDailyTaskState(date);
 
-    return true;
+    // After the task of the day is successfully added, the information of the day is updated synchronously.
+    if (!await this.updateDayByTaskStatus(date)) {
+      return false;
+    }
+    return await TaskInfoApi.syncPlansForRemainingWeek(date);
   }
 
   /*

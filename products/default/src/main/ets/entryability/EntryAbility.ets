@@ -35,11 +35,11 @@ export default class EntryAbility extends UIAbility {
     }
 
     // Init RDB connect and create tables
-    await RdbUtils.createRdb(this.context).then(() => {
-      for (let tableName of RdbConstants.TABLE_NAME_LIST) {
-        RdbUtils.createTable(tableName);
-      }
-    });
+    await RdbUtils.createRdb(this.context);
+    for (let tableName of RdbConstants.TABLE_NAME_LIST) {
+      await RdbUtils.createTable(tableName);
+    }
+    await TaskInfoApi.ensureScheduleSchema(convertDate2Str(new Date()));
     await TaskInfoApi.checkDefaultTask();
     await PreferencesUtils.getPreferencesFromStorage(this.context);
     await DayInfoApi.initAchievementStoreByDayInfo(convertDate2Str(new Date()));

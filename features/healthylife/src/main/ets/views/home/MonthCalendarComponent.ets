@@ -15,9 +15,18 @@
  *
  */
 
-import { CommonConstants as Const, convertDate2Str, convertStr2Date, DayInfo, DayTaskInfo, taskBaseInfoList } from 'common';
+import {
+  CommonConstants as Const,
+  convertDate2Str,
+  convertStr2Date,
+  DayInfo,
+  DayTaskInfo,
+  TaskInfo,
+  taskBaseInfoList
+} from 'common';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
 import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
+import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 
 class MonthDayInfo {
   date: string;
@@ -25,13 +34,16 @@ class MonthDayInfo {
   inCurrentMonth: boolean;
   dayInfo: DayInfo;
   taskList: DayTaskInfo[];
+  isFuture: boolean;
 
-  constructor(date: string, day: number, inCurrentMonth: boolean, dayInfo: DayInfo, taskList: DayTaskInfo[]) {
+  constructor(date: string, day: number, inCurrentMonth: boolean, dayInfo: DayInfo, taskList: DayTaskInfo[],
+    isFuture: boolean) {
     this.date = date;
     this.day = day;
     this.inCurrentMonth = inCurrentMonth;
     this.dayInfo = dayInfo;
     this.taskList = taskList;
+    this.isFuture = isFuture;
   }
 }
 
@@ -66,6 +78,8 @@ export struct MonthCalendarComponent {
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const firstCellDate = new Date(firstDayOfMonth);
     firstCellDate.setDate(firstDayOfMonth.getDate() - mondayOffset);
+    const today = convertDate2Str(new Date());
+    const taskPlans = await TaskInfoApi.queryAllTaskInfo();
 
     let monthDays: MonthDayInfo[] = [];
     for (let index = 0; index < Const.WEEK_DAY_NUM * 6; index++) {
@@ -77,7 +91,11 @@ export struct MonthCalendarComponent {
         dayInfo = new DayInfo(dateStr, 0, 0);
       }
       const taskList = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
-      monthDays.push(new MonthDayInfo(dateStr, cellDate.getDate(), cellDate.getMonth() === month, dayInfo, taskList));
+      if (dateStr > today) {
+        this.appendPlannedTaskPreviews(dateStr, taskList, taskPlans);
+      }
+      monthDays.push(new MonthDayInfo(dateStr, cellDate.getDate(), cellDate.getMonth() === month, dayInfo, taskList,
+        dateStr > today));
     }
     this.monthDays = monthDays;
   }
@@ -118,7 +136,7 @@ export struct MonthCalendarComponent {
                 .fontSize($r('app.float.default_12'))
                 .textAlign(TextAlign.Center)
                 .width(Const.PERCENTAGE_100_EXCEPT_7)
-            }, (item: Resource, index: number) => `${index}`)
+            }, (_item: Resource, index: number) => `${index}`)
           }
           .width(Const.THOUSANDTH_940)
           .height($r('app.float.default_32'))
@@ -168,7 +186,8 @@ export struct MonthCalendarComponent {
       Image(item.dayInfo.getProgressImg())
         .height($r('app.float.default_14'))
         .objectFit(ImageFit.Contain)
-        .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4)
+        .opacity(item.isFuture ? Const.ANIMATE_OPACITY_0 :
+          (item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4))
 
       this.taskProgressBars(item.taskList)
     }
@@ -176,6 +195,14 @@ export struct MonthCalendarComponent {
     .height(Const.THOUSANDTH_1000)
     .justifyContent(FlexAlign.SpaceAround)
     .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.45)
+  }
+
+  private appendPlannedTaskPreviews(date: string, taskList: DayTaskInfo[], taskPlans: TaskInfo[]): void {
+    for (let taskInfo of taskPlans) {
+      if (taskInfo.isScheduledOn(date) && !taskList.some((item) => item.taskId === taskInfo.taskId)) {
+        taskList.push(taskInfo.convert2DefaultDayTask(date));
+      }
+    }
   }
 
   @Builder

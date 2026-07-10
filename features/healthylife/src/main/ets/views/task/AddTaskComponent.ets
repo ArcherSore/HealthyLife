@@ -82,7 +82,7 @@ export struct AddTaskComponent {
 
       Blank();
 
-      Text($r('app.string.task_opened'))
+      Text(this.getTaskStatus(item))
         .fontColor($r(`sys.color.font_primary`))
         .fontSize($r('app.float.default_16'))
         .margin({
@@ -106,5 +106,53 @@ export struct AddTaskComponent {
     .onClick(() => {
       this.pageStack.pushPath({ name: 'EditTaskComponent', param: item });
     })
+  }
+
+  private getTaskStatus(item: TaskInfo): string {
+    if (!item.isOpen) {
+      return '';
+    }
+    if (item.repeatDays === Const.REPEAT_DAYS_ONCE) {
+      return this.getResourceString($r('app.string.task_today_added'));
+    }
+    let schedule = this.getRepeatSummary(item);
+    try {
+      return this.getUIContext().getHostContext()?.resourceManager
+        .getStringSync($r('app.string.task_enabled_with_schedule').id, schedule) || schedule;
+    } catch (error) {
+      console.error(`getTaskStatus failed: ${error}`);
+      return schedule;
+    }
+  }
+
+  private getRepeatSummary(item: TaskInfo): string {
+    let preset: Resource | undefined = undefined;
+    if (item.repeatDays === Const.REPEAT_DAYS_DAILY) {
+      preset = $r('app.string.repeat_daily');
+    } else if (item.repeatDays === Const.REPEAT_DAYS_WEEKDAY) {
+      preset = $r('app.string.repeat_weekday');
+    } else if (item.repeatDays === Const.REPEAT_DAYS_WEEKEND) {
+      preset = $r('app.string.repeat_weekend');
+    }
+    if (preset) {
+      return this.getResourceString(preset);
+    }
+    const days: number[] = [1, 2, 3, 4, 5, 6, 0];
+    let labels: string[] = [];
+    for (let index = 0; index < days.length; index++) {
+      if ((item.repeatDays & (1 << days[index])) !== 0) {
+        labels.push(this.getResourceString(Const.WEEK_SHORTHAND_LIST[index]));
+      }
+    }
+    return labels.join('、');
+  }
+
+  private getResourceString(resource: Resource): string {
+    try {
+      return this.getUIContext().getHostContext()?.resourceManager.getStringSync(resource.id) || '';
+    } catch (error) {
+      console.error(`getResourceString failed: ${error}`);
+      return '';
+    }
   }
 }

@@ -16,6 +16,8 @@
  */
 
 import { DayTaskInfo } from './DayTaskInfo';
+import { CommonConstants as Const } from '../../constants/CommonConstants';
+import { convertStr2Date } from '../../utils/Utils';
 
 export class TaskInfo {
   taskId: number;
@@ -28,9 +30,12 @@ export class TaskInfo {
   alertEndTime: string;
   alertFrequency: string;
   reminderId: number;
+  repeatDays: number;
+  scheduleStartDate: string;
 
   constructor(taskId: number, isOpen: boolean, targetValue: string, finValue: string, isDone: boolean, isAlert: boolean,
-    alertStartTime: string, alertEndTime: string, alertFrequency: string, reminderId: number) {
+    alertStartTime: string, alertEndTime: string, alertFrequency: string, reminderId: number,
+    repeatDays: number = Const.REPEAT_DAYS_DAILY, scheduleStartDate: string = '') {
     this.taskId = taskId;
     this.isOpen = isOpen;
     this.targetValue = targetValue;
@@ -41,6 +46,8 @@ export class TaskInfo {
     this.alertEndTime = alertEndTime;
     this.alertFrequency = alertFrequency;
     this.reminderId = reminderId
+    this.repeatDays = repeatDays;
+    this.scheduleStartDate = scheduleStartDate;
   }
 
   toString(): string {
@@ -54,7 +61,9 @@ export class TaskInfo {
       `alertStartTime: ${this.alertStartTime}, ` +
       `alertEndTime: ${this.alertEndTime}, ` +
       `alertFrequency: ${this.alertFrequency}, ` +
-      `reminderId: ${this.reminderId}` +
+      `reminderId: ${this.reminderId}, ` +
+      `repeatDays: ${this.repeatDays}, ` +
+      `scheduleStartDate: ${this.scheduleStartDate}` +
       `]`;
   }
 
@@ -69,7 +78,9 @@ export class TaskInfo {
       this.alertStartTime,
       this.alertEndTime,
       this.alertFrequency,
-      this.reminderId
+      this.reminderId,
+      this.repeatDays,
+      this.scheduleStartDate
     );
   }
 
@@ -84,6 +95,19 @@ export class TaskInfo {
       && this.alertEndTime === otherTask.alertEndTime
       && this.alertFrequency === otherTask.alertFrequency
       && this.reminderId === otherTask.reminderId
+      && this.repeatDays === otherTask.repeatDays
+      && this.scheduleStartDate === otherTask.scheduleStartDate
+  }
+
+  isScheduledOn(date: string): boolean {
+    if (!this.isOpen || this.scheduleStartDate === '' || date < this.scheduleStartDate) {
+      return false;
+    }
+    if (this.repeatDays === Const.REPEAT_DAYS_ONCE) {
+      return date === this.scheduleStartDate;
+    }
+    const dayOfWeek = convertStr2Date(date).getDay();
+    return (this.repeatDays & (1 << dayOfWeek)) !== 0;
   }
 
   convert2DayTask(date: string): DayTaskInfo {
@@ -96,11 +120,11 @@ export class TaskInfo {
 }
 
 export const defaultTaskInfoList: TaskInfo[] = [
-  new TaskInfo(0, false, '08:00', '', false, false, '', '', '', -1),
-  new TaskInfo(1, false, '1', '', false, false, '', '', '', -1),
-  new TaskInfo(2, false, '1', '', false, false, '', '', '', -1),
-  new TaskInfo(3, false, '1', '', false, false, '', '', '', -1),
-  new TaskInfo(4, false, '1', '', false, false, '', '', '', -1),
-  new TaskInfo(5, false, '23:00', '', false, false, '', '', '', -1),
-  new TaskInfo(6, false, '1', '', false, false, '08:00', '', 'daily', -1)
+  new TaskInfo(0, false, '08:00', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(1, false, '1', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(2, false, '1', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(3, false, '1', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(4, false, '1', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(5, false, '23:00', '', false, false, '', '', '', -1, Const.REPEAT_DAYS_DAILY),
+  new TaskInfo(6, false, '1', '', false, false, '08:00', '', 'daily', -1, Const.REPEAT_DAYS_ONCE)
 ];

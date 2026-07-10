@@ -26,7 +26,6 @@ import {
   taskBaseInfoList
 } from 'common';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
-import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { AchievementStore, initAchievementStore } from '../viewmodel/AchievementStore';
 import { HomeStore, initCurrentDateInfo } from '../viewmodel/HomeStore';
@@ -55,8 +54,7 @@ export struct HealthyLifePage {
     }
     this.refreshingDate = true;
     try {
-      await DayInfoApi.initAchievementStoreByDayInfo(date);
-      await DayInfoApi.initDayInfo(date);
+      await DayInfoApi.initDayInfosThrough(date);
       await this.reconcileReminderAgents(date);
       this.homeStore = await initCurrentDateInfo(convertStr2Date(date));
       this.achievementStore = await initAchievementStore();
@@ -79,8 +77,7 @@ export struct HealthyLifePage {
         }
         taskInfo.reminderId = -1;
       }
-      let dayTaskKey = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskInfo.taskId);
-      if (taskInfo.isOpen && dayTaskKey !== -1 && AgentUtils.shouldScheduleReminder(taskInfo, date)) {
+      if (AgentUtils.shouldScheduleReminder(taskInfo, date)) {
         taskInfo.reminderId = await AgentUtils.creatAgent(taskInfo, taskBaseInfo, date, this.getUIContext());
       }
       if (oldReminderId !== taskInfo.reminderId) {

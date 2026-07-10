@@ -105,7 +105,8 @@ async function syncDayInfoWithTasks(date: string, taskList: DayTaskInfo[]): Prom
   let dayInfo = await DayInfoApi.queryByKey(date);
   if (dayInfo === null) {
     dayInfo = new DayInfo(date, taskList.length, finTaskNum);
-    if (taskList.length > 0) {
+    // Future task instances are previews. Persist DayInfo only when that date actually arrives.
+    if (taskList.length > 0 && date <= convertDate2Str(new Date())) {
       await DayInfoApi.insert(dayInfo);
     }
     return dayInfo;

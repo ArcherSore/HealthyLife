@@ -355,6 +355,23 @@
     {
       "name": "remove_task_failed",
       "value": "移除失败，请稍后重试"
-    }
+    },
+    { "name": "repeat_setting", "value": "重复" },
+    { "name": "repeat_once", "value": "仅今天" },
+    { "name": "repeat_daily", "value": "每天" },
+    { "name": "repeat_weekday", "value": "工作日" },
+    { "name": "repeat_weekend", "value": "周末" },
+    { "name": "repeat_custom", "value": "自定义星期" },
+    { "name": "task_enabled_with_schedule", "value": "已启用 · %s" },
+    { "name": "task_today_added", "value": "今日已添加" },
+    { "name": "task_remove_actions_title", "value": "管理今天的任务" },
+    { "name": "task_remove_actions_message", "value": "历史打卡记录不会受到影响" },
+    { "name": "skip_today", "value": "跳过今天" },
+    { "name": "stop_repeat", "value": "停止重复并移除今天" },
+    { "name": "remove_completed_warning", "value": "该任务今天已经完成，继续操作会删除今天的完成记录。" },
+    { "name": "skip_today_success", "value": "已跳过今天" },
+    { "name": "stop_repeat_success", "value": "已停止重复" },
+    { "name": "skip_today_description", "value": "仅移除今天，明天继续按计划" },
+    { "name": "stop_repeat_description", "value": "关闭后续计划并取消任务提醒" }
   ]
 }

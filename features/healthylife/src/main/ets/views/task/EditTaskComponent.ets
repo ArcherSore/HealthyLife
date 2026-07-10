@@ -19,12 +19,13 @@ import { HomeStore, updateTaskList } from '../../viewmodel/HomeStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { openTargetSettingCustomDialog } from '../dialog/TargetSettingDialog';
 import { openReminderSettingCustomDialog } from '../dialog/ReminderSettingDialog';
-import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
+import { openRepeatSettingCustomDialog } from '../dialog/RepeatSettingDialog';
 import { TargetSettingDialogParams } from '../../viewmodel/dialog/TargetSettingDialogParams';
 import {
   ReminderSettingDialogParams,
   ReminderSettingType
 } from '../../viewmodel/dialog/ReminderSettingDialogParams';
+import { RepeatSettingDialogParams } from '../../viewmodel/dialog/RepeatSettingDialogParams';
 import {
   AgentUtils,
   CommonConstants as Const,
@@ -83,9 +84,7 @@ export struct EditTaskComponent {
       return;
     }
     this.ensureReminderDefaults();
-    let dayTaskKey = await DayTaskInfoApi.queryKeyByDateAndTaskId(this.homeStore.currentDate, this.taskInfo.taskId);
-    let shouldSchedule = dayTaskKey !== -1 &&
-      AgentUtils.shouldScheduleReminder(this.taskInfo, this.homeStore.currentDate);
+    let shouldSchedule = AgentUtils.shouldScheduleReminder(this.taskInfo, this.homeStore.currentDate);
     if (this.taskInfo.isAlert && shouldSchedule) {
       let isRequestSuccess = await RequestAuthorization.requestNotification(this.getUIContext());
       if (!isRequestSuccess) {
@@ -126,35 +125,22 @@ export struct EditTaskComponent {
       this.pageStack.clear(true);
       return;
     }
-    const statusUnchanged =
-      (this.originalInfo.isOpen && this.taskInfo.isOpen) || (!this.originalInfo.isOpen && !this.taskInfo.isOpen);
-    if (statusUnchanged) {
-      // the task status has not changed, and only the other information of the task needs to be updated.
-      await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
+    if (!this.taskInfo.isOpen) {
       if (this.originalInfo.isOpen) {
-        // the current task is open, need to synchronize the update day task information.
-        await DayTaskInfoApi.queryKeyByDateAndTaskId(this.homeStore.currentDate, this.taskInfo.taskId)
-          .then(async (key: number) => {
-            await DayTaskInfoApi.update(key, this.taskInfo.convert2DayTask(this.homeStore.currentDate));
-          })
-        await this.syncReminderAgent();
-      }
-    } else {
-      // the task status has changed, need to update the task information before modifying the task status.
-      this.taskInfo.isOpen = this.originalInfo.isOpen;
-      if (!this.originalInfo.isTaskEqual(this.taskInfo)) {
-        await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
-      }
-      if (!this.taskInfo.isOpen) {
-        await TaskInfoApi.openTask(this.homeStore.currentDate, this.taskInfo.taskId);
-        this.taskInfo.isOpen = true;
-        await this.syncReminderAgent();
-      } else {
         await TaskInfoApi.closeTask(this.homeStore.currentDate, this.taskInfo.taskId);
-        this.taskInfo.isOpen = false;
         this.taskInfo.isAlert = false;
         this.taskInfo.reminderId = -1;
+      } else {
+        await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
       }
+    } else {
+      if (!this.originalInfo.isOpen) {
+        this.taskInfo.scheduleStartDate = this.homeStore.currentDate;
+        this.taskInfo.finValue = '';
+        this.taskInfo.isDone = false;
+      }
+      await TaskInfoApi.saveTaskPlan(this.homeStore.currentDate, this.taskInfo);
+      await this.syncReminderAgent();
     }
     await updateTaskList(this.homeStore);
     this.pageStack.clear(true);
@@ -232,6 +218,35 @@ export struct EditTaskComponent {
           }
         })
 
+        Row() {
+          Text($r('app.string.repeat_setting'))
+            .fontWeight(FontWeight.Medium)
+            .fontSize($r('app.float.default_18'))
+
+          Blank()
+
+          Text(this.getRepeatSummary())
+            .fontSize($r('app.float.default_16'))
+            .fontColor(this.taskInfo.isOpen ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+            .padding({ right: $r('app.float.default_6') })
+
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontColor([this.taskInfo.isOpen ? $r('sys.color.icon_secondary') : $r('sys.color.font_tertiary')])
+            .fontSize($r('app.float.default_28'))
+        }
+        .width(Const.THOUSANDTH_940)
+        .height($r('app.float.default_56'))
+        .borderRadius($r('app.float.default_16'))
+        .backgroundColor($r('sys.color.background_primary'))
+        .padding({ left: $r('app.float.default_12'), right: $r('app.float.default_12') })
+        .enabled(this.taskInfo.isOpen)
+        .opacity(this.taskInfo.isOpen ? Const.ANIMATE_OPACITY_1 : 0.4)
+        .onClick(() => {
+          if (this.taskInfo.isOpen) {
+            openRepeatSettingCustomDialog(this.getUIContext(), new RepeatSettingDialogParams(this.taskInfo));
+          }
+        })
+
         if (this.taskBaseInfo.supportReminder) {
           Row() {
             Text($r('app.string.reminder_enable'))
@@ -265,7 +280,6 @@ export struct EditTaskComponent {
 
           if (this.taskInfo.isAlert) {
             this.reminderRowBuilder($r('app.string.reminder_time'), ReminderSettingType.TIME)
-            this.reminderRowBuilder($r('app.string.reminder_frequency'), ReminderSettingType.FREQUENCY)
           }
         }
 
@@ -302,16 +316,35 @@ export struct EditTaskComponent {
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
-  private getReminderFrequencyText(): Resource {
-    switch (this.taskInfo.alertFrequency) {
-      case Const.REMINDER_FREQUENCY_WEEKDAY:
-        return $r('app.string.reminder_frequency_weekday');
-      case Const.REMINDER_FREQUENCY_WEEKEND:
-        return $r('app.string.reminder_frequency_weekend');
-      case Const.REMINDER_FREQUENCY_DAILY:
+  private getRepeatSummary(): ResourceStr {
+    switch (this.taskInfo.repeatDays) {
+      case Const.REPEAT_DAYS_ONCE:
+        return $r('app.string.repeat_once');
+      case Const.REPEAT_DAYS_DAILY:
+        return $r('app.string.repeat_daily');
+      case Const.REPEAT_DAYS_WEEKDAY:
+        return $r('app.string.repeat_weekday');
+      case Const.REPEAT_DAYS_WEEKEND:
+        return $r('app.string.repeat_weekend');
       default:
-        return $r('app.string.reminder_frequency_daily');
+        return this.getCustomRepeatSummary();
     }
+  }
+
+  private getCustomRepeatSummary(): string {
+    let labels: string[] = [];
+    const days: number[] = [1, 2, 3, 4, 5, 6, 0];
+    try {
+      for (let index = 0; index < days.length; index++) {
+        if ((this.taskInfo.repeatDays & (1 << days[index])) !== 0) {
+          labels.push(this.getUIContext().getHostContext()?.resourceManager
+            .getStringSync(Const.WEEK_SHORTHAND_LIST[index].id) || '');
+        }
+      }
+    } catch (error) {
+      hilog.error(0x0000, TAG, `Get repeat summary failed: ${error}`);
+    }
+    return labels.join('、');
   }
 
   @Builder
@@ -323,7 +356,7 @@ export struct EditTaskComponent {
 
       Blank()
 
-      Text(settingType === ReminderSettingType.TIME ? this.taskInfo.alertStartTime : this.getReminderFrequencyText())
+      Text(this.taskInfo.alertStartTime)
         .fontSize($r('app.float.default_16'))
         .fontColor((this.taskInfo.isOpen && this.taskInfo.isAlert) ? $r('sys.color.font_primary') :
           $r('sys.color.font_tertiary'))

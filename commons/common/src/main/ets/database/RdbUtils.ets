@@ -47,20 +47,22 @@ export class RdbUtils {
    * The method of creating a table.
    * @param { string } tableName the table name that needs to be created
    */
-  static createTable(tableName: string): void {
+  static async createTable(tableName: string): Promise<boolean> {
     if (!RdbUtils.rdbStore) {
       hilog.error(0x0000, TAG, 'RdbStore is undefined');
-      return;
+      return false;
     }
     let createSql: string = RdbUtils.generateTableSql(tableName);
-    RdbUtils.rdbStore.execute(createSql)
-      .then(() => {
-        hilog.info(0x0000, TAG, `Execute create ${tableName} table sql success`);
-      })
-      .catch((err: BusinessError) => {
-        hilog.error(0x0000, TAG,
-          `Execute create ${tableName} table sql failed, code is ${err.code},message is ${err.message}`);
-      });
+    try {
+      await RdbUtils.rdbStore.execute(createSql);
+      hilog.info(0x0000, TAG, `Execute create ${tableName} table sql success`);
+      return true;
+    } catch (err) {
+      const businessError = err as BusinessError;
+      hilog.error(0x0000, TAG,
+        `Execute create ${tableName} table sql failed, code is ${businessError.code},message is ${businessError.message}`);
+      return false;
+    }
   }
 
   /*

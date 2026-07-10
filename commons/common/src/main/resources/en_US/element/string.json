@@ -355,6 +355,23 @@
     {
       "name": "remove_task_failed",
       "value": "Failed to remove. Please try again later"
-    }
+    },
+    { "name": "repeat_setting", "value": "Repeat" },
+    { "name": "repeat_once", "value": "Today only" },
+    { "name": "repeat_daily", "value": "Every day" },
+    { "name": "repeat_weekday", "value": "Weekdays" },
+    { "name": "repeat_weekend", "value": "Weekends" },
+    { "name": "repeat_custom", "value": "Custom days" },
+    { "name": "task_enabled_with_schedule", "value": "Enabled · %s" },
+    { "name": "task_today_added", "value": "Added today" },
+    { "name": "task_remove_actions_title", "value": "Manage today's task" },
+    { "name": "task_remove_actions_message", "value": "Previous check-in history will be kept" },
+    { "name": "skip_today", "value": "Skip today" },
+    { "name": "stop_repeat", "value": "Stop repeating and remove today" },
+    { "name": "remove_completed_warning", "value": "This task is complete. Continuing will delete today's completion record." },
+    { "name": "skip_today_success", "value": "Skipped today" },
+    { "name": "stop_repeat_success", "value": "Repeat stopped" },
+    { "name": "skip_today_description", "value": "Remove today only and continue the plan tomorrow" },
+    { "name": "stop_repeat_description", "value": "Disable future tasks and cancel reminders" }
   ]
 }

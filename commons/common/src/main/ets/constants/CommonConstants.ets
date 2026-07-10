@@ -103,6 +103,11 @@ export class CommonConstants {
   // task info
   static readonly TASK_NUM = 7;
   static readonly TASK_RUN_ID = 6;
+  // Repeat-day mask uses the same weekday index as Date.getDay(): Sunday is bit 0.
+  static readonly REPEAT_DAYS_ONCE: number = 0;
+  static readonly REPEAT_DAYS_DAILY: number = 0b1111111;
+  static readonly REPEAT_DAYS_WEEKDAY: number = 0b0111110;
+  static readonly REPEAT_DAYS_WEEKEND: number = 0b1000001;
   static readonly PICKER_RANGE_DRINK: string[] = [
     '0.5',
     '1',

@@ -28,6 +28,7 @@ import { taskBaseInfoList } from '../../model/TaskBaseModel';
 import { CommonConstants as Const } from '../../constants/CommonConstants';
 import { defaultTaskInfoList, TaskInfo } from '../../model/database/TaskInfo';
 import { AgentUtils } from '../../utils/agent/AgentUtils';
+import { convertDate2Str, convertStr2Date } from '../../utils/Utils';
 
 // hilog tag
 const TAG: string = 'TaskInfoApi';
@@ -179,6 +180,12 @@ class TaskInfoApi implements TableApi<TaskInfo> {
         case 'reminderId':
           valueBucket[name] = data.reminderId;
           break;
+        case 'repeatDays':
+          valueBucket[name] = data.repeatDays;
+          break;
+        case 'scheduleStartDate':
+          valueBucket[name] = data.scheduleStartDate;
+          break;
         default:
           break;
       }
@@ -198,13 +205,50 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       const alertEndTime = resultSet.getValue(resultSet.getColumnIndex('alertEndTime')) as string;
       const alertFrequency = resultSet.getValue(resultSet.getColumnIndex('alertFrequency')) as string;
       const reminderId = resultSet.getValue(resultSet.getColumnIndex('reminderId')) as number;
+      const repeatDays = resultSet.getValue(resultSet.getColumnIndex('repeatDays')) as number;
+      const scheduleStartDate = resultSet.getValue(resultSet.getColumnIndex('scheduleStartDate')) as string;
       return new TaskInfo(taskId, isOpen, targetValue, finValue, isDone, isAlert, alertStartTime, alertEndTime,
-        alertFrequency, reminderId);
+        alertFrequency, reminderId, repeatDays, scheduleStartDate || '');
     } catch (error) {
       hilog.error(0x0000, TAG, `an error occurred: ${error}`);
       return new TaskInfo(-1, false, '', '', false, false, '', '', '', -1);
     }
 
+  }
+
+  async ensureScheduleSchema(currentDate: string): Promise<boolean> {
+    if (!RdbUtils.rdbStore) {
+      return false;
+    }
+    let columnNames: string[] = [];
+    try {
+      const resultSet = await RdbUtils.rdbStore.querySql(`PRAGMA table_info(${TABLE_NAME})`);
+      while (resultSet.goToNextRow()) {
+        columnNames.push(resultSet.getString(resultSet.getColumnIndex('name')));
+      }
+      resultSet.close();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `Query task schema failed: ${error}`);
+      return false;
+    }
+    if (!columnNames.includes('repeatDays') &&
+      !await RdbUtils.executeSql(`ALTER TABLE ${TABLE_NAME} ADD COLUMN repeatDays INTEGER`)) {
+      return false;
+    }
+    if (!columnNames.includes('scheduleStartDate') &&
+      !await RdbUtils.executeSql(`ALTER TABLE ${TABLE_NAME} ADD COLUMN scheduleStartDate TEXT`)) {
+      return false;
+    }
+    const presetSql = `UPDATE ${TABLE_NAME} SET repeatDays = CASE ` +
+      `WHEN isOpen = 1 THEN ${Const.REPEAT_DAYS_DAILY} ` +
+      `WHEN taskId = ${Const.TASK_RUN_ID} THEN ${Const.REPEAT_DAYS_ONCE} ` +
+      `ELSE ${Const.REPEAT_DAYS_DAILY} END WHERE repeatDays IS NULL`;
+    if (!await RdbUtils.executeSql(presetSql)) {
+      return false;
+    }
+    return await RdbUtils.executeSql(`UPDATE ${TABLE_NAME} SET scheduleStartDate = CASE ` +
+      `WHEN isOpen = 1 THEN '${currentDate}' ELSE '' END ` +
+      `WHERE scheduleStartDate IS NULL`);
   }
 
   /*
@@ -284,18 +328,9 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     return result;
   }
 
-  /*
-   * Reset the daily task state without clearing the saved task and reminder preferences.
-   * @returns { Promise<boolean> } reset succeeded.
-   */
+  /* Legacy entry retained for callers outside the feature module. Daily reset no longer disables plans. */
   async resetTasksForNewDay(): Promise<boolean> {
-    let taskList = await this.queryAllTaskInfo();
-    for (let taskInfo of taskList) {
-      if (taskInfo.reminderId !== -1) {
-        await AgentUtils.deleteAgent(taskInfo.reminderId);
-      }
-    }
-    let initSql = `UPDATE ${TABLE_NAME} SET isOpen = 0, isDone = 0, finValue = "", reminderId = -1`
+    let initSql = `UPDATE ${TABLE_NAME} SET isDone = 0, finValue = ""`
     let result = await RdbUtils.executeSql(initSql);
     if (result) {
       hilog.info(0x0000, TAG, `Reset tasks for new day is successful`);
@@ -306,8 +341,7 @@ class TaskInfoApi implements TableApi<TaskInfo> {
   }
 
   /*
-   * Reconcile the global daily status with the actual task records of the specified date.
-   * dayTaskInfo is the source of truth for whether a task is opened on that date.
+   * Reconcile only the legacy current-day progress fields. isOpen now means that the plan is enabled.
    */
   async reconcileDailyTaskState(date: string): Promise<boolean> {
     let result = true;
@@ -315,13 +349,6 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     let dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(date);
     for (let taskInfo of taskList) {
       let dayTaskInfo = dayTaskList.find((item) => item.taskId === taskInfo.taskId);
-      let isOpen = dayTaskInfo !== undefined;
-      if (!isOpen && taskInfo.reminderId !== -1) {
-        if (await AgentUtils.deleteAgent(taskInfo.reminderId)) {
-          taskInfo.reminderId = -1;
-        }
-      }
-      taskInfo.isOpen = isOpen;
       taskInfo.finValue = dayTaskInfo ? dayTaskInfo.finValue : '';
       taskInfo.isDone = dayTaskInfo ? dayTaskInfo.isDone : false;
       result = await this.update(taskInfo.taskId, taskInfo);
@@ -332,6 +359,111 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     return true;
   }
 
+  async generateScheduledTasksForDate(date: string): Promise<boolean> {
+    const taskList = await this.queryAllTaskInfo();
+    const dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(date);
+    for (let taskInfo of taskList) {
+      if (!taskInfo.isScheduledOn(date) || dayTaskList.some((item) => item.taskId === taskInfo.taskId)) {
+        continue;
+      }
+      if (await DayTaskInfoApi.insert(taskInfo.convert2DefaultDayTask(date)) === -1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async expireOneTimePlans(date: string): Promise<boolean> {
+    const taskList = await this.queryAllTaskInfo();
+    for (let taskInfo of taskList) {
+      if (!taskInfo.isOpen || taskInfo.repeatDays !== Const.REPEAT_DAYS_ONCE ||
+        taskInfo.scheduleStartDate === '' || taskInfo.scheduleStartDate >= date) {
+        continue;
+      }
+      if (taskInfo.reminderId !== -1 && !await AgentUtils.deleteAgent(taskInfo.reminderId)) {
+        return false;
+      }
+      taskInfo.isOpen = false;
+      taskInfo.isAlert = false;
+      taskInfo.reminderId = -1;
+      taskInfo.finValue = '';
+      taskInfo.isDone = false;
+      if (!await this.update(taskInfo.taskId, taskInfo)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async syncTaskForDate(date: string, taskInfo: TaskInfo): Promise<boolean> {
+    const key = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskInfo.taskId);
+    if (!taskInfo.isScheduledOn(date)) {
+      if (key !== -1 && !await DayTaskInfoApi.deleteByDateAndTaskId(date, taskInfo.taskId)) {
+        return false;
+      }
+      return await DayInfoApi.updateDayByTaskStatus(date);
+    }
+    if (key === -1) {
+      if (await DayTaskInfoApi.insert(taskInfo.convert2DefaultDayTask(date)) === -1) {
+        return false;
+      }
+    } else {
+      const dayTaskInfo = await DayTaskInfoApi.queryByKey(key);
+      if (dayTaskInfo) {
+        dayTaskInfo.targetValue = taskInfo.targetValue;
+        if (!await DayTaskInfoApi.update(key, dayTaskInfo)) {
+          return false;
+        }
+      }
+    }
+    return await DayInfoApi.updateDayByTaskStatus(date);
+  }
+
+  private getRemainingWeekDates(date: string): string[] {
+    const currentDate = convertStr2Date(date);
+    const daysUntilSunday = (Const.WEEK_DAY_NUM - currentDate.getDay()) % Const.WEEK_DAY_NUM;
+    let result: string[] = [];
+    for (let offset = 1; offset <= daysUntilSunday; offset++) {
+      const futureDate = new Date(currentDate);
+      futureDate.setDate(currentDate.getDate() + offset);
+      result.push(convertDate2Str(futureDate));
+    }
+    return result;
+  }
+
+  async syncTaskForRemainingWeek(date: string, taskInfo: TaskInfo): Promise<boolean> {
+    const remainingDates = this.getRemainingWeekDates(date);
+    for (let futureDate of remainingDates) {
+      if (!await this.syncTaskForDate(futureDate, taskInfo)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async syncPlansForRemainingWeek(date: string): Promise<boolean> {
+    const taskList = await this.queryAllTaskInfo();
+    for (let taskInfo of taskList) {
+      if (!await this.syncTaskForRemainingWeek(date, taskInfo)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async saveTaskPlan(date: string, taskInfo: TaskInfo): Promise<boolean> {
+    if (taskInfo.isOpen && taskInfo.scheduleStartDate === '') {
+      taskInfo.scheduleStartDate = date;
+    }
+    if (!await this.update(taskInfo.taskId, taskInfo)) {
+      return false;
+    }
+    if (!await this.syncTaskForDate(date, taskInfo)) {
+      return false;
+    }
+    return await this.syncTaskForRemainingWeek(date, taskInfo);
+  }
+
   /*
    * Open the task and update the relevant information synchronously.
    * @param { string } date date of the day.
@@ -339,42 +471,15 @@ class TaskInfoApi implements TableApi<TaskInfo> {
    * @returns { Promise<boolean> } whether it was successful or not.
    */
   async openTask(date: string, taskId: number): Promise<boolean> {
-    // Determine whether the task is open.
-    let oldTaskInfo = await this.queryByKey(taskId);
-    if (!oldTaskInfo) {
+    let taskInfo = await this.queryByKey(taskId);
+    if (!taskInfo) {
       return false;
     }
-    if (oldTaskInfo.isOpen) {
-      hilog.info(0x0000, TAG, `The current task is opened and cannot be open, taskId is ${taskId}`);
-      return true;
-    }
-
-    // modify the current task to open.
-    let result = true;
-    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = 1, finValue = "", isDone = 0 WHERE taskId = ${taskId}`
-    result = await RdbUtils.executeSql(openTaskSql);
-    if (!result) {
-      return result;
-    }
-
-    // Synchronously add the task information records of the day.
-    await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskId).then(async (key: number) => {
-      if (key === -1) {
-        let taskInfo = await this.queryByKey(taskId);
-        if (!taskInfo) {
-          return;
-        }
-        await DayTaskInfoApi.insert(taskInfo.convert2DefaultDayTask(date));
-      }
-    })
-    if (!result) {
-      return result;
-    }
-
-    // Synchronously modify the number of information tasks for the day.
-    result = await DayInfoApi.updateDayByTaskStatus(date);
-
-    return result;
+    taskInfo.isOpen = true;
+    taskInfo.scheduleStartDate = date;
+    taskInfo.finValue = '';
+    taskInfo.isDone = false;
+    return await this.saveTaskPlan(date, taskInfo);
   }
 
   /*
@@ -389,11 +494,6 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     if (!oldTaskInfo) {
       return false;
     }
-    if (!oldTaskInfo.isOpen) {
-      hilog.info(0x0000, TAG, `The current task is closed and cannot be close, taskId is ${taskId}`);
-      return true;
-    }
-
     let result = true;
     if (oldTaskInfo.reminderId !== -1) {
       result = await AgentUtils.deleteAgent(oldTaskInfo.reminderId);
@@ -401,12 +501,14 @@ class TaskInfoApi implements TableApi<TaskInfo> {
         return false;
       }
     }
-    let closeTaskSql =
-      `UPDATE ${TABLE_NAME} SET isOpen = 0, finValue = "", isDone = 0, isAlert = 0, reminderId = -1 ` +
-        `WHERE taskId = ${taskId}`
-    result = await RdbUtils.executeSql(closeTaskSql);
+    oldTaskInfo.isOpen = false;
+    oldTaskInfo.isAlert = false;
+    oldTaskInfo.reminderId = -1;
+    oldTaskInfo.finValue = '';
+    oldTaskInfo.isDone = false;
+    result = await this.update(taskId, oldTaskInfo);
     if (!result) {
-      return result;
+      return false;
     }
 
     result = await DayTaskInfoApi.deleteByDateAndTaskId(date, taskId);
@@ -415,8 +517,31 @@ class TaskInfoApi implements TableApi<TaskInfo> {
     }
 
     result = await DayInfoApi.updateDayByTaskStatus(date);
+    if (!result) {
+      return false;
+    }
+    result = await this.syncTaskForRemainingWeek(date, oldTaskInfo);
 
     return result;
+  }
+
+  async skipTaskForDate(date: string, taskId: number): Promise<boolean> {
+    const taskInfo = await this.queryByKey(taskId);
+    if (!taskInfo) {
+      return false;
+    }
+    if (taskInfo.repeatDays === Const.REPEAT_DAYS_ONCE) {
+      return await this.closeTask(date, taskId);
+    }
+    if (!await DayTaskInfoApi.deleteByDateAndTaskId(date, taskId)) {
+      return false;
+    }
+    taskInfo.finValue = '';
+    taskInfo.isDone = false;
+    if (!await this.update(taskId, taskInfo)) {
+      return false;
+    }
+    return await DayInfoApi.updateDayByTaskStatus(date);
   }
 
   /*
@@ -426,40 +551,43 @@ class TaskInfoApi implements TableApi<TaskInfo> {
    * @returns { Promise<boolean> } whether it was successful or not.
    */
   async clockTask(date: string, taskId: number): Promise<boolean> {
-    // Determine whether the task is done.
     let taskInfo = await this.queryByKey(taskId);
     if (!taskInfo) {
       return false;
     }
-    if (!taskInfo.isOpen) {
-      hilog.info(0x0000, TAG, `The current task is not open and cannot be clock, taskId is ${taskInfo.taskId}`);
+    let key = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskId);
+    let dayTaskInfo = key === -1 ? null : await DayTaskInfoApi.queryByKey(key);
+    if (!dayTaskInfo) {
+      hilog.info(0x0000, TAG, `The task is not scheduled today and cannot be clocked, taskId is ${taskId}`);
       return true;
     }
     let step = taskBaseInfoList[taskId].step;
-    if (taskInfo.isDone && step === 0) {
+    if (dayTaskInfo.isDone && step === 0) {
       hilog.info(0x0000, TAG, `The current task is done and cannot be clock, taskId is ${taskInfo.taskId}`);
       return true;
     }
 
     let result = true;
     if (step === 0) {
-      taskInfo.finValue = taskInfo.targetValue;
-      taskInfo.isDone = true;
+      dayTaskInfo.finValue = dayTaskInfo.targetValue;
+      dayTaskInfo.isDone = true;
     } else {
-      let finValue = Number(taskInfo.finValue) + step;
-      taskInfo.finValue = finValue.toString();
-      if (!taskInfo.isDone) {
-        taskInfo.isDone = finValue >= Number(taskInfo.targetValue);
+      let finValue = Number(dayTaskInfo.finValue) + step;
+      dayTaskInfo.finValue = finValue.toString();
+      if (!dayTaskInfo.isDone) {
+        dayTaskInfo.isDone = finValue >= Number(dayTaskInfo.targetValue);
       }
     }
+
+    taskInfo.finValue = dayTaskInfo.finValue;
+    taskInfo.isDone = dayTaskInfo.isDone;
 
     result = await this.update(taskId, taskInfo);
     if (!result) {
       return result;
     }
 
-    let key = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskId);
-    result = await DayTaskInfoApi.update(key, taskInfo.convert2DayTask(date));
+    result = await DayTaskInfoApi.update(key, dayTaskInfo);
     if (!result) {
       return result;
     }

@@ -78,15 +78,7 @@ export class AgentUtils {
   }
 
   static shouldScheduleReminder(taskInfo: TaskInfo, date: string): boolean {
-    if (!taskInfo.isAlert || date !== convertDate2Str(new Date())) {
-      return false;
-    }
-    let taskDate = convertStr2Date(date);
-    let dayOfWeek = taskDate.getDay();
-    if (taskInfo.alertFrequency === Const.REMINDER_FREQUENCY_WEEKDAY && (dayOfWeek === 0 || dayOfWeek === 6)) {
-      return false;
-    }
-    if (taskInfo.alertFrequency === Const.REMINDER_FREQUENCY_WEEKEND && dayOfWeek !== 0 && dayOfWeek !== 6) {
+    if (!taskInfo.isOpen || !taskInfo.isAlert) {
       return false;
     }
     let reminderTime = taskInfo.alertStartTime || taskInfo.targetValue || '08:00';
@@ -99,12 +91,20 @@ export class AgentUtils {
     if (Number.isNaN(hour) || Number.isNaN(minute)) {
       return false;
     }
+    if (taskInfo.repeatDays !== Const.REPEAT_DAYS_ONCE) {
+      return taskInfo.repeatDays > 0;
+    }
+    if (date !== convertDate2Str(new Date()) || taskInfo.scheduleStartDate !== date) {
+      return false;
+    }
+    let taskDate = convertStr2Date(date);
     let reminderDate = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate(), hour, minute, 0);
     return reminderDate.getTime() > Date.now();
   }
 
   static agentConfigSet(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, date: string,
-    uIContext: UIContext): reminderAgentManager.ReminderRequestCalendar | undefined {
+    uIContext: UIContext): reminderAgentManager.ReminderRequestCalendar |
+      reminderAgentManager.ReminderRequestAlarm | undefined {
     if (!AgentUtils.shouldScheduleReminder(taskInfo, date)) {
       hilog.info(0x0000, TAG, `Skip reminder for inactive date or elapsed time, taskId is ${taskInfo.taskId}`);
       return undefined;
@@ -112,18 +112,10 @@ export class AgentUtils {
     // Adjust the time format
     let reminderTime = taskInfo.alertStartTime || taskInfo.targetValue || '08:00';
     let hourMin = reminderTime.split(':');
-    let taskDate = convertStr2Date(date);
     try {
       let displayText = uIContext.getHostContext()?.resourceManager.getStringSync(taskBaseInfo.name.id);
-      let targetReminderAgent: reminderAgentManager.ReminderRequestCalendar = {
-        reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR,
-        dateTime: {
-          year: taskDate.getFullYear(),
-          month: taskDate.getMonth() + 1,
-          day: taskDate.getDate(),
-          hour: parseInt(hourMin[0]),
-          minute: parseInt(hourMin[1])
-        },
+      let commonRequest: reminderAgentManager.ReminderRequest = {
+        reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_ALARM,
         actionButton: [
           {
             title: 'close',
@@ -146,8 +138,32 @@ export class AgentUtils {
         expiredContent: 'this reminder has expired',
         snoozeContent: 'remind later',
         slotType: notificationManager.SlotType.SOCIAL_COMMUNICATION
+      };
+      if (taskInfo.repeatDays !== Const.REPEAT_DAYS_ONCE) {
+        let daysOfWeek: number[] = [];
+        for (let day = 0; day < Const.WEEK_DAY_NUM; day++) {
+          if ((taskInfo.repeatDays & (1 << day)) !== 0) {
+            daysOfWeek.push(day + 1);
+          }
+        }
+        let alarmRequest = commonRequest as reminderAgentManager.ReminderRequestAlarm;
+        alarmRequest.reminderType = reminderAgentManager.ReminderType.REMINDER_TYPE_ALARM;
+        alarmRequest.hour = parseInt(hourMin[0]);
+        alarmRequest.minute = parseInt(hourMin[1]);
+        alarmRequest.daysOfWeek = daysOfWeek;
+        return alarmRequest;
       }
-      return targetReminderAgent;
+      let taskDate = convertStr2Date(date);
+      let calendarRequest = commonRequest as reminderAgentManager.ReminderRequestCalendar;
+      calendarRequest.reminderType = reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR;
+      calendarRequest.dateTime = {
+        year: taskDate.getFullYear(),
+        month: taskDate.getMonth() + 1,
+        day: taskDate.getDate(),
+        hour: parseInt(hourMin[0]),
+        minute: parseInt(hourMin[1])
+      };
+      return calendarRequest;
     } catch (error) {
       hilog.error(0x0000, TAG, `an error occurred: ${error}`);
       return undefined
