@@ -16,7 +16,7 @@
  */
 
 import { HomeStore, updateTaskList } from '../../viewmodel/HomeStore';
-import { AchievementStore } from '../../viewmodel/AchievementStore';
+import { AchievementStore, syncStreaksFromDb, syncTaskOverAchievementDb } from '../../viewmodel/AchievementStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { openTaskClockCustomDialog } from '../dialog/TaskClockCustomDialog';
 import { TaskInfoDialogParams } from '../../viewmodel/dialog/TaskInfoDialogParams';
@@ -162,6 +162,8 @@ export struct TaskListComponent {
     let result = await TaskInfoApi.skipTaskForDate(this.homeStore.currentDate, item.taskId);
     if (result) {
       await updateTaskList(this.homeStore);
+      await syncStreaksFromDb(this.achievementStore, this.getUIContext());
+      await syncTaskOverAchievementDb(this.achievementStore, this.getUIContext(), item.taskId);
       this.showToast($r('app.string.skip_today_success'));
       return;
     }
@@ -175,6 +177,8 @@ export struct TaskListComponent {
     let result = await TaskInfoApi.closeTask(this.homeStore.currentDate, item.taskId);
     if (result) {
       await updateTaskList(this.homeStore);
+      await syncStreaksFromDb(this.achievementStore, this.getUIContext());
+      await syncTaskOverAchievementDb(this.achievementStore, this.getUIContext(), item.taskId);
       this.showToast($r('app.string.stop_repeat_success'));
       return;
     }

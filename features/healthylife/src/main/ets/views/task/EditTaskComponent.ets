@@ -16,6 +16,7 @@
  */
 
 import { HomeStore, updateTaskList } from '../../viewmodel/HomeStore';
+import { AchievementStore, syncStreaksFromDb, syncTaskOverAchievementDb } from '../../viewmodel/AchievementStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { openTargetSettingCustomDialog } from '../dialog/TargetSettingDialog';
 import { openReminderSettingCustomDialog } from '../dialog/ReminderSettingDialog';
@@ -61,6 +62,7 @@ function targetValueStyle(isOpen: boolean, pickerType: PickerType) {
 export struct EditTaskComponent {
   @Consume('pathStack') pageStack: NavPathStack;
   @Consume homeStore: HomeStore;
+  @Consume achievementStore: AchievementStore;
   @Provide taskInfo: TaskInfo = new TaskInfo(0, false, '', '', false, false, '', '', '', -1);
   @Provide taskBaseInfo: TaskBaseInfo = taskBaseInfoList[this.taskInfo.taskId];
   originalInfo: TaskInfo = this.taskInfo;
@@ -143,6 +145,8 @@ export struct EditTaskComponent {
       await this.syncReminderAgent();
     }
     await updateTaskList(this.homeStore);
+    await syncStreaksFromDb(this.achievementStore, this.getUIContext());
+    await syncTaskOverAchievementDb(this.achievementStore, this.getUIContext(), this.taskInfo.taskId);
     this.pageStack.clear(true);
   }
 

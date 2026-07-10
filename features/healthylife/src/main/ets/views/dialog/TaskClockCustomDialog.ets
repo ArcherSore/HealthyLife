@@ -2,7 +2,7 @@
 import { ComponentContent } from '@kit.ArkUI';
 import { updateTaskList } from '../../viewmodel/HomeStore';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
-import { updateAchievementStore, updateTaskAchievementStore } from '../../viewmodel/AchievementStore';
+import { syncStreaksFromDb, updateTaskAchievementStore } from '../../viewmodel/AchievementStore';
 import { TaskInfoDialogParams } from '../../viewmodel/dialog/TaskInfoDialogParams';
 import { CommonConstants as Const, PromptActionClass, taskBaseInfoList } from 'common';
 
@@ -78,10 +78,8 @@ async function taskClock(params: TaskInfoDialogParams) {
   }
   PromptActionClass.closeDialog();
 
-  if (!params.dayTaskInfo.isDone) {
-    await updateAchievementStore(params);
-  }
   if (canClockIn) {
+    await syncStreaksFromDb(params.achievementStore, params.uIContext);
     await updateTaskAchievementStore(params);
   }
 }
