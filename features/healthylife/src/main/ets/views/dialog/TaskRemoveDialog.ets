@@ -35,10 +35,11 @@ export function taskRemoveDialogBuilder(params: TaskRemoveDialogParams) {
       .width(Const.THOUSANDTH_1000)
 
     Text(params.taskName)
-      .fontSize($r('app.float.default_14'))
-      .fontColor($r('sys.color.font_secondary'))
+      .fontSize($r('app.float.default_18'))
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_primary'))
       .width(Const.THOUSANDTH_1000)
-      .margin({ top: $r('app.float.default_4') })
+      .margin({ top: $r('app.float.default_6') })
 
     if (params.isDone) {
       Text($r('app.string.remove_completed_warning'))

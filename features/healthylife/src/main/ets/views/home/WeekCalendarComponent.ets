@@ -93,9 +93,12 @@ export struct WeekCalendarComponent {
             await this.refreshDateInfo(Const.WEEK_DAY_NUM);
           })
 
-          this.symbolBuild($r('sys.symbol.calendar'), () => {
-            this.pageStack.pushPathByName('MonthCalendarComponent', this.homeStore.currentDate);
-          })
+          Row() {
+            this.symbolBuild($r('sys.symbol.calendar'), () => {
+              this.pageStack.pushPathByName('MonthCalendarComponent', this.homeStore.currentDate);
+            })
+          }
+          .margin({ left: $r('app.float.default_16') })
         }
 
         List({
