@@ -186,8 +186,7 @@ export struct MonthCalendarComponent {
       Image(item.dayInfo.getProgressImg())
         .height($r('app.float.default_14'))
         .objectFit(ImageFit.Contain)
-        .opacity(item.isFuture ? Const.ANIMATE_OPACITY_0 :
-          (item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4))
+        .opacity(item.inCurrentMonth ? Const.ANIMATE_OPACITY_1 : 0.4)
 
       this.taskProgressBars(item.taskList)
     }
