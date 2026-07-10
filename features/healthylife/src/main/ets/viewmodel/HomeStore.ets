@@ -64,13 +64,10 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
   let weekTaskMap: Record<string, DayTaskInfo[]> = {};
   for (let dateOfWeek of dateList) {
     let dateStr = convertDate2Str(dateOfWeek);
-    let dayInfo = await DayInfoApi.queryByKey(dateStr);
-    if (dayInfo === null) {
-      // if this info is null, init to default value.
-      dayInfo = new DayInfo(dateStr, 0, 0);
-    }
+    let dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
+    let dayInfo = await syncDayInfoWithTasks(dateStr, dayTaskList);
     weekList.push(dayInfo);
-    weekTaskMap[dateStr] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
+    weekTaskMap[dateStr] = dayTaskList;
   }
 
   let dateStr = convertDate2Str(date);
@@ -87,19 +84,37 @@ export async function initCurrentDateInfo(date: Date): Promise<HomeStore> {
 export async function updateTaskList(homeStore: HomeStore): Promise<void> {
   for (let index = 0; index < homeStore.weekList.length; index++) {
     const dateStr = homeStore.weekList[index].date;
-    let dayInfo = await DayInfoApi.queryByKey(dateStr);
-    if (dayInfo === null) {
-      // if this info is null, init to default value.
-      dayInfo = new DayInfo(dateStr, 0, 0);
-    }
-    homeStore.weekList[index] = dayInfo;
-    homeStore.weekTaskMap[dateStr] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
+    let dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
+    homeStore.weekList[index] = await syncDayInfoWithTasks(dateStr, dayTaskList);
+    homeStore.weekTaskMap[dateStr] = dayTaskList;
   }
 
   let dateStr = homeStore.currentDate;
   let taskList: DayTaskInfo[] = await DayTaskInfoApi.queryDayTaskInfo(dateStr);
   homeStore.taskList = taskList;
   homeStore.weekTaskMap[dateStr] = taskList;
+}
+
+async function syncDayInfoWithTasks(date: string, taskList: DayTaskInfo[]): Promise<DayInfo> {
+  let finTaskNum = 0;
+  for (let taskInfo of taskList) {
+    if (taskInfo.isDone) {
+      finTaskNum++;
+    }
+  }
+  let dayInfo = await DayInfoApi.queryByKey(date);
+  if (dayInfo === null) {
+    dayInfo = new DayInfo(date, taskList.length, finTaskNum);
+    if (taskList.length > 0) {
+      await DayInfoApi.insert(dayInfo);
+    }
+    return dayInfo;
+  }
+  if (dayInfo.targetTaskNum !== taskList.length || dayInfo.finTaskNum !== finTaskNum) {
+    await DayInfoApi.updateByKey(date, taskList.length, finTaskNum);
+    dayInfo = new DayInfo(date, taskList.length, finTaskNum);
+  }
+  return dayInfo;
 }
 
 /*

@@ -22,12 +22,14 @@ import { TaskInfo } from '../../model/database/TaskInfo';
 import { TaskBaseInfo } from '../../model/TaskBaseModel';
 import { CommonConstants as Const } from '../../constants/CommonConstants';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { convertDate2Str, convertStr2Date } from '../Utils';
 
 const TAG: string = '[AgentUtils]';
 
 export class AgentUtils {
-  static async creatAgent(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, uIContext: UIContext): Promise<number> {
-    let targetReminderAgent = AgentUtils.agentConfigSet(taskInfo, taskBaseInfo, uIContext);
+  static async creatAgent(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, date: string,
+    uIContext: UIContext): Promise<number> {
+    let targetReminderAgent = AgentUtils.agentConfigSet(taskInfo, taskBaseInfo, date, uIContext);
     if (!targetReminderAgent) {
       return -1;
     }
@@ -41,38 +43,87 @@ export class AgentUtils {
     return -1;
   }
 
-  static async updateAgent(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, uIContext: UIContext): Promise<void> {
-    let targetReminderAgent = AgentUtils.agentConfigSet(taskInfo, taskBaseInfo, uIContext);
-    reminderAgentManager.updateReminder(taskInfo.reminderId, targetReminderAgent).then(() => {
-      console.info("update reminder succeed");
-    }).catch((err: BusinessError) => {
-      console.error("promise err code:" + err.code + " message:" + err.message);
-    });
+  static async updateAgent(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, date: string,
+    uIContext: UIContext): Promise<boolean> {
+    let targetReminderAgent = AgentUtils.agentConfigSet(taskInfo, taskBaseInfo, date, uIContext);
+    if (!targetReminderAgent) {
+      return false;
+    }
+    try {
+      await reminderAgentManager.updateReminder(taskInfo.reminderId, targetReminderAgent);
+      hilog.info(0x0000, TAG, `Succeeded in updating reminder, reminderId is ${taskInfo.reminderId}`);
+      return true;
+    } catch (err) {
+      hilog.error(0x0000, TAG,
+        `Failed to update reminder. Code: ${err.code}, message: ${err.message}`);
+      return false;
+    }
   }
 
-  static deleteAgent(reminderId: number): void {
+  static async deleteAgent(reminderId: number): Promise<boolean> {
     // The value of reminderId is obtained from the callback after the reminder agent is successfully published.
-    reminderAgentManager.cancelReminder(reminderId).then(() => {
+    try {
+      await reminderAgentManager.cancelReminder(reminderId);
       hilog.info(0x0000, TAG, `Succeeded in canceling reminder. `);
-    }).catch((err: BusinessError) => {
+      return true;
+    } catch (err) {
+      const businessError = err as BusinessError;
+      if (businessError.code === 1700003) {
+        hilog.info(0x0000, TAG, `Reminder is already inactive, reminderId is ${reminderId}`);
+        return true;
+      }
       hilog.error(0x0000, TAG, `Failed to cancel reminder. Code: ${err.code}, message: ${err.message}`);
-    });
+      return false;
+    }
   }
 
-  static agentConfigSet(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, uIContext: UIContext) {
+  static shouldScheduleReminder(taskInfo: TaskInfo, date: string): boolean {
+    if (!taskInfo.isAlert || date !== convertDate2Str(new Date())) {
+      return false;
+    }
+    let taskDate = convertStr2Date(date);
+    let dayOfWeek = taskDate.getDay();
+    if (taskInfo.alertFrequency === Const.REMINDER_FREQUENCY_WEEKDAY && (dayOfWeek === 0 || dayOfWeek === 6)) {
+      return false;
+    }
+    if (taskInfo.alertFrequency === Const.REMINDER_FREQUENCY_WEEKEND && dayOfWeek !== 0 && dayOfWeek !== 6) {
+      return false;
+    }
+    let reminderTime = taskInfo.alertStartTime || taskInfo.targetValue || '08:00';
+    let hourMin = reminderTime.split(':');
+    if (hourMin.length !== 2) {
+      return false;
+    }
+    let hour = parseInt(hourMin[0]);
+    let minute = parseInt(hourMin[1]);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) {
+      return false;
+    }
+    let reminderDate = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate(), hour, minute, 0);
+    return reminderDate.getTime() > Date.now();
+  }
+
+  static agentConfigSet(taskInfo: TaskInfo, taskBaseInfo: TaskBaseInfo, date: string,
+    uIContext: UIContext): reminderAgentManager.ReminderRequestCalendar | undefined {
+    if (!AgentUtils.shouldScheduleReminder(taskInfo, date)) {
+      hilog.info(0x0000, TAG, `Skip reminder for inactive date or elapsed time, taskId is ${taskInfo.taskId}`);
+      return undefined;
+    }
     // Adjust the time format
     let reminderTime = taskInfo.alertStartTime || taskInfo.targetValue || '08:00';
-    let GeneratedDestructArray_1 = reminderTime.split(':');
-    let hourStr = GeneratedDestructArray_1[0];
-    let minuteStr = GeneratedDestructArray_1[1];
-    let daysOfWeek = AgentUtils.getDaysOfWeek(taskInfo.alertFrequency);
+    let hourMin = reminderTime.split(':');
+    let taskDate = convertStr2Date(date);
     try {
       let displayText = uIContext.getHostContext()?.resourceManager.getStringSync(taskBaseInfo.name.id);
-      let targetReminderAgent: reminderAgentManager.ReminderRequestAlarm = {
-        reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_ALARM,
-        hour: parseInt(hourStr),
-        minute: parseInt(minuteStr),
-        daysOfWeek: daysOfWeek,
+      let targetReminderAgent: reminderAgentManager.ReminderRequestCalendar = {
+        reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR,
+        dateTime: {
+          year: taskDate.getFullYear(),
+          month: taskDate.getMonth() + 1,
+          day: taskDate.getDate(),
+          hour: parseInt(hourMin[0]),
+          minute: parseInt(hourMin[1])
+        },
         actionButton: [
           {
             title: 'close',
@@ -100,18 +151,6 @@ export class AgentUtils {
     } catch (error) {
       hilog.error(0x0000, TAG, `an error occurred: ${error}`);
       return undefined
-    }
-  }
-
-  private static getDaysOfWeek(alertFrequency: string): number[] {
-    switch (alertFrequency) {
-      case Const.REMINDER_FREQUENCY_WEEKDAY:
-        return [1, 2, 3, 4, 5];
-      case Const.REMINDER_FREQUENCY_WEEKEND:
-        return [6, 7];
-      case Const.REMINDER_FREQUENCY_DAILY:
-      default:
-        return [1, 2, 3, 4, 5, 6, 7];
     }
   }
 }

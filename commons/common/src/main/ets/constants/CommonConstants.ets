@@ -143,6 +143,7 @@ export class CommonConstants {
   static readonly MAX_CONSECUTIVE_DAYS: string = 'maxConsecutiveDays';
   static readonly CURRENT_CONSECUTIVE_DAYS: string = 'currentConsecutiveDays';
   static readonly CURRENT_DAY_STATUS: string = 'currentDayStatus';
+  static readonly FOREGROUND_DATE: string = 'foregroundDate';
   // task over achievement info
   static readonly TASK_OVER_ACHIEVEMENT: string = 'taskOverAchievement';
   // over achievement percentages

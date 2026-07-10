@@ -18,22 +18,76 @@
 import { HomeComponent } from '../views/HomeComponent';
 import { MineComponent } from '../views/MineComponent';
 import { NavList, TabId } from '../model/NavItemModel';
-import { CommonConstants as Const, convertDate2Str } from 'common';
+import {
+  AgentUtils,
+  CommonConstants as Const,
+  convertDate2Str,
+  convertStr2Date,
+  taskBaseInfoList
+} from 'common';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
+import DayTaskInfoApi from 'common/src/main/ets/database/tables/DayTaskInfoApi';
+import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { AchievementStore, initAchievementStore } from '../viewmodel/AchievementStore';
-import { HomeStore } from '../viewmodel/HomeStore';
+import { HomeStore, initCurrentDateInfo } from '../viewmodel/HomeStore';
 import { common } from '@kit.AbilityKit';
 import { initUserProfileStore, UserProfileStore } from '../viewmodel/UserProfileStore';
 
 @Component
 export struct HealthyLifePage {
   @State currentIndex: number = 0;
+  @StorageLink(Const.FOREGROUND_DATE) @Watch('onForegroundDateChange') foregroundDate: string = '';
   @Provide achievementStore: AchievementStore = new AchievementStore(0, 0, false, new Array<number>(7).fill(0));
   @Provide userProfileStore: UserProfileStore = new UserProfileStore();
   @Provide('pathStack') pageStack: NavPathStack = new NavPathStack();
   @Provide homeStore: HomeStore = new HomeStore([], -1, '', []);
   private context = this.getUIContext()?.getHostContext() as common.UIAbilityContext;
   private windowClass = this.context.windowStage.getMainWindowSync();
+  private refreshingDate: boolean = false;
+
+  onForegroundDateChange(): void {
+    this.refreshCurrentDay(this.foregroundDate);
+  }
+
+  private async refreshCurrentDay(date: string): Promise<void> {
+    if (!date || this.refreshingDate || this.homeStore.currentDate === date) {
+      return;
+    }
+    this.refreshingDate = true;
+    try {
+      await DayInfoApi.initAchievementStoreByDayInfo(date);
+      await DayInfoApi.initDayInfo(date);
+      await this.reconcileReminderAgents(date);
+      this.homeStore = await initCurrentDateInfo(convertStr2Date(date));
+      this.achievementStore = await initAchievementStore();
+    } finally {
+      this.refreshingDate = false;
+    }
+  }
+
+  private async reconcileReminderAgents(date: string): Promise<void> {
+    let taskList = await TaskInfoApi.queryAllTaskInfo();
+    for (let taskInfo of taskList) {
+      let taskBaseInfo = taskBaseInfoList[taskInfo.taskId];
+      if (!taskBaseInfo.supportReminder) {
+        continue;
+      }
+      let oldReminderId = taskInfo.reminderId;
+      if (oldReminderId !== -1) {
+        if (!await AgentUtils.deleteAgent(oldReminderId)) {
+          continue;
+        }
+        taskInfo.reminderId = -1;
+      }
+      let dayTaskKey = await DayTaskInfoApi.queryKeyByDateAndTaskId(date, taskInfo.taskId);
+      if (taskInfo.isOpen && dayTaskKey !== -1 && AgentUtils.shouldScheduleReminder(taskInfo, date)) {
+        taskInfo.reminderId = await AgentUtils.creatAgent(taskInfo, taskBaseInfo, date, this.getUIContext());
+      }
+      if (oldReminderId !== taskInfo.reminderId) {
+        await TaskInfoApi.update(taskInfo.taskId, taskInfo);
+      }
+    }
+  }
 
   async aboutToAppear(): Promise<void> {
     try {
@@ -45,9 +99,15 @@ export struct HealthyLifePage {
     } catch (error) {
       console.error(`an error occurred: ${error}`);
     }
-    await DayInfoApi.initDayInfo(convertDate2Str(new Date()));
-    this.achievementStore = await initAchievementStore();
+    await this.refreshCurrentDay(convertDate2Str(new Date()));
     this.userProfileStore = await initUserProfileStore();
+  }
+
+  onPageShow(): void {
+    let today = convertDate2Str(new Date());
+    if (today !== this.homeStore.currentDate && !this.refreshingDate) {
+      this.foregroundDate = today;
+    }
   }
 
   build() {

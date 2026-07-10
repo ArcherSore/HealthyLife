@@ -83,27 +83,40 @@ export struct EditTaskComponent {
       return;
     }
     this.ensureReminderDefaults();
-    if (this.taskInfo.isAlert) {
+    let dayTaskKey = await DayTaskInfoApi.queryKeyByDateAndTaskId(this.homeStore.currentDate, this.taskInfo.taskId);
+    let shouldSchedule = dayTaskKey !== -1 &&
+      AgentUtils.shouldScheduleReminder(this.taskInfo, this.homeStore.currentDate);
+    if (this.taskInfo.isAlert && shouldSchedule) {
       let isRequestSuccess = await RequestAuthorization.requestNotification(this.getUIContext());
       if (!isRequestSuccess) {
         return;
       }
       if (this.taskInfo.reminderId !== -1) {
-        await AgentUtils.updateAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
-        hilog.info(0x0000, TAG, `update reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
-        return;
+        let updateResult = await AgentUtils.updateAgent(this.taskInfo, this.taskBaseInfo, this.homeStore.currentDate,
+          this.getUIContext());
+        if (updateResult) {
+          hilog.info(0x0000, TAG, `update reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
+          return;
+        }
+        if (!await AgentUtils.deleteAgent(this.taskInfo.reminderId)) {
+          return;
+        }
+        this.taskInfo.reminderId = -1;
       }
-      let reminderId = await AgentUtils.creatAgent(this.taskInfo, this.taskBaseInfo, this.getUIContext());
+      let reminderId = await AgentUtils.creatAgent(this.taskInfo, this.taskBaseInfo, this.homeStore.currentDate,
+        this.getUIContext());
       this.taskInfo.reminderId = reminderId;
       await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
       hilog.info(0x0000, TAG, `create reminderId successed, reminderId is ${reminderId}`);
       return;
     }
     if (this.taskInfo.reminderId !== -1) {
-      AgentUtils.deleteAgent(this.taskInfo.reminderId);
-      hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
-      this.taskInfo.reminderId = -1;
-      await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
+      let reminderId = this.taskInfo.reminderId;
+      if (await AgentUtils.deleteAgent(reminderId)) {
+        hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${reminderId}`);
+        this.taskInfo.reminderId = -1;
+        await TaskInfoApi.update(this.taskInfo.taskId, this.taskInfo);
+      }
     }
   }
 
@@ -137,10 +150,6 @@ export struct EditTaskComponent {
         this.taskInfo.isOpen = true;
         await this.syncReminderAgent();
       } else {
-        if (this.taskBaseInfo.supportReminder && this.taskInfo.reminderId !== -1) {
-          AgentUtils.deleteAgent(this.taskInfo.reminderId);
-          hilog.info(0x0000, TAG, `delete reminderId successed, reminderId is ${this.taskInfo.reminderId}`);
-        }
         await TaskInfoApi.closeTask(this.homeStore.currentDate, this.taskInfo.taskId);
         this.taskInfo.isOpen = false;
         this.taskInfo.isAlert = false;

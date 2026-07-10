@@ -27,6 +27,7 @@ import { RdbConstants } from '../../constants/RdbConstants';
 import { taskBaseInfoList } from '../../model/TaskBaseModel';
 import { CommonConstants as Const } from '../../constants/CommonConstants';
 import { defaultTaskInfoList, TaskInfo } from '../../model/database/TaskInfo';
+import { AgentUtils } from '../../utils/agent/AgentUtils';
 
 // hilog tag
 const TAG: string = 'TaskInfoApi';
@@ -284,18 +285,51 @@ class TaskInfoApi implements TableApi<TaskInfo> {
   }
 
   /*
-   * initialize all tasks to an incomplete state.
-   * @returns { Promise<boolean> } initialization succeeded.
+   * Reset the daily task state without clearing the saved task and reminder preferences.
+   * @returns { Promise<boolean> } reset succeeded.
    */
-  async initAllTask(): Promise<boolean> {
-    let initSql = `UPDATE ${TABLE_NAME} SET isDone = false, finValue = ""`
+  async resetTasksForNewDay(): Promise<boolean> {
+    let taskList = await this.queryAllTaskInfo();
+    for (let taskInfo of taskList) {
+      if (taskInfo.reminderId !== -1) {
+        await AgentUtils.deleteAgent(taskInfo.reminderId);
+      }
+    }
+    let initSql = `UPDATE ${TABLE_NAME} SET isOpen = 0, isDone = 0, finValue = "", reminderId = -1`
     let result = await RdbUtils.executeSql(initSql);
     if (result) {
-      hilog.info(0x0000, TAG, `Init all task is successful`);
+      hilog.info(0x0000, TAG, `Reset tasks for new day is successful`);
     } else {
-      hilog.error(0x0000, TAG, `Init all task is failed`);
+      hilog.error(0x0000, TAG, `Reset tasks for new day is failed`);
     }
     return result;
+  }
+
+  /*
+   * Reconcile the global daily status with the actual task records of the specified date.
+   * dayTaskInfo is the source of truth for whether a task is opened on that date.
+   */
+  async reconcileDailyTaskState(date: string): Promise<boolean> {
+    let result = true;
+    let taskList = await this.queryAllTaskInfo();
+    let dayTaskList = await DayTaskInfoApi.queryDayTaskInfo(date);
+    for (let taskInfo of taskList) {
+      let dayTaskInfo = dayTaskList.find((item) => item.taskId === taskInfo.taskId);
+      let isOpen = dayTaskInfo !== undefined;
+      if (!isOpen && taskInfo.reminderId !== -1) {
+        if (await AgentUtils.deleteAgent(taskInfo.reminderId)) {
+          taskInfo.reminderId = -1;
+        }
+      }
+      taskInfo.isOpen = isOpen;
+      taskInfo.finValue = dayTaskInfo ? dayTaskInfo.finValue : '';
+      taskInfo.isDone = dayTaskInfo ? dayTaskInfo.isDone : false;
+      result = await this.update(taskInfo.taskId, taskInfo);
+      if (!result) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /*
@@ -317,7 +351,7 @@ class TaskInfoApi implements TableApi<TaskInfo> {
 
     // modify the current task to open.
     let result = true;
-    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = true, finValue = "", isDone = false WHERE taskId = ${taskId}`
+    let openTaskSql = `UPDATE ${TABLE_NAME} SET isOpen = 1, finValue = "", isDone = 0 WHERE taskId = ${taskId}`
     result = await RdbUtils.executeSql(openTaskSql);
     if (!result) {
       return result;
@@ -360,34 +394,27 @@ class TaskInfoApi implements TableApi<TaskInfo> {
       return true;
     }
 
-    let affectedDateList = await DayTaskInfoApi.queryDateListByTaskId(taskId);
-    if (!affectedDateList.includes(date)) {
-      affectedDateList.push(date);
-    }
-
     let result = true;
-    // modify the current task to close, and turn off reminders without clearing reminder settings.
-    let openTaskSql =
-      `UPDATE ${TABLE_NAME} SET isOpen = false, finValue = "", isDone = false, isAlert = false, reminderId = -1 ` +
-        `WHERE taskId = ${taskId}`
-    result = await RdbUtils.executeSql(openTaskSql);
-    if (!result) {
-      return result;
-    }
-
-    // Synchronously delete all daily task records for this closed task.
-    result = await DayTaskInfoApi.deleteByTaskId(taskId);
-    if (!result) {
-      return result;
-    }
-
-    // Synchronously update all affected daily summaries for task list, calendar, and forms.
-    for (let affectedDate of affectedDateList) {
-      result = await DayInfoApi.updateDayByTaskStatus(affectedDate);
+    if (oldTaskInfo.reminderId !== -1) {
+      result = await AgentUtils.deleteAgent(oldTaskInfo.reminderId);
       if (!result) {
-        return result;
+        return false;
       }
     }
+    let closeTaskSql =
+      `UPDATE ${TABLE_NAME} SET isOpen = 0, finValue = "", isDone = 0, isAlert = 0, reminderId = -1 ` +
+        `WHERE taskId = ${taskId}`
+    result = await RdbUtils.executeSql(closeTaskSql);
+    if (!result) {
+      return result;
+    }
+
+    result = await DayTaskInfoApi.deleteByDateAndTaskId(date, taskId);
+    if (!result) {
+      return result;
+    }
+
+    result = await DayInfoApi.updateDayByTaskStatus(date);
 
     return result;
   }

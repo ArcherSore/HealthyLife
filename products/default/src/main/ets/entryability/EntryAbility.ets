@@ -18,7 +18,7 @@
 import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
-import { convertDate2Str, RdbConstants } from 'common';
+import { CommonConstants as Const, convertDate2Str, RdbConstants } from 'common';
 import { RdbUtils } from 'common/src/main/ets/database/RdbUtils';
 import DayInfoApi from 'common/src/main/ets/database/tables/DayInfoApi';
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
@@ -41,7 +41,6 @@ export default class EntryAbility extends UIAbility {
       }
     });
     await TaskInfoApi.checkDefaultTask();
-    // Init preferences and get store
     await PreferencesUtils.getPreferencesFromStorage(this.context);
     await DayInfoApi.initAchievementStoreByDayInfo(convertDate2Str(new Date()));
 
@@ -74,6 +73,7 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     // Ability has brought to foreground
+    AppStorage.setOrCreate<string>(Const.FOREGROUND_DATE, convertDate2Str(new Date()));
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }
 

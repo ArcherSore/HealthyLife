@@ -17,6 +17,7 @@
 
 import TaskInfoApi from 'common/src/main/ets/database/tables/TaskInfoApi';
 import { CommonConstants as Const, taskBaseInfoList, TaskInfo } from 'common';
+import { HomeStore } from '../../viewmodel/HomeStore';
 
 @Builder
 export function addTaskBuilder() {
@@ -26,10 +27,12 @@ export function addTaskBuilder() {
 @Component
 export struct AddTaskComponent {
   @Consume('pathStack') pageStack: NavPathStack;
+  @Consume homeStore: HomeStore;
   @State taskList: TaskInfo[] = [];
   @State flag: boolean = false;
 
   async aboutToAppear(): Promise<void> {
+    await TaskInfoApi.reconcileDailyTaskState(this.homeStore.currentDate);
     this.taskList = await TaskInfoApi.queryAllTaskInfo();
     this.flag = true;
   }

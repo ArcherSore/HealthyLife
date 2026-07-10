@@ -24,7 +24,6 @@ import TaskInfoApi from './TaskInfoApi';
 import DayTaskInfoApi from './DayTaskInfoApi';
 import ColumnInfo from '../../model/ColumnModel';
 import { DayInfo } from '../../model/database/DayInfo';
-import { TaskInfo } from '../../model/database/TaskInfo';
 import { RdbConstants } from '../../constants/RdbConstants';
 import { PreferencesUtils } from '../../utils/PreferencesUtils';
 import { DayTaskInfo } from '../../model/database/DayTaskInfo';
@@ -207,27 +206,19 @@ class DayInfoApi implements TableApi<DayInfo> {
   async initDayInfo(date: string): Promise<boolean> {
     let result = -1;
     let currentDayInfo: DayInfo | null = await this.queryByKey(date);
-    let taskListOfOpen: TaskInfo[] = await TaskInfoApi.queryOpenedTaskInfo();
 
     if (currentDayInfo) {
-      // current day info exist, clean up dayTaskInfo records for tasks that have been closed.
-      let queryDayTaskSql = `SELECT * FROM dayTaskInfo WHERE date = ${date} ORDER BY taskId`;
-      let dayTaskList: DayTaskInfo[] = await DayTaskInfoApi.query(queryDayTaskSql);
-      let openedIds: number[] = [];
-      for (let taskOfOpen of taskListOfOpen) {
-        openedIds.push(taskOfOpen.taskId);
+      // Existing dayTaskInfo records are the source of truth. Repair stale global task status without deleting history.
+      if (!await TaskInfoApi.reconcileDailyTaskState(date)) {
+        return false;
       }
-      for (let dayTask of dayTaskList) {
-        if (!openedIds.includes(dayTask.taskId)) {
-          await DayTaskInfoApi.delete(dayTask.id);
-          hilog.info(0x0000, TAG, `Removed stale dayTaskInfo for closed task ${dayTask.taskId} on date ${date}`);
-        }
-      }
-      return true;
+      return await this.updateDayByTaskStatus(date);
     }
 
-    // Current day info not exist, it means that the application is opened for the first time that day, and all tasks are initialized to not done.
-    await TaskInfoApi.initAllTask();
+    // The first initialization of a new day resets only daily state and keeps task/reminder preferences.
+    if (!await TaskInfoApi.resetTasksForNewDay()) {
+      return false;
+    }
 
     // current day info not exist, generate the default information of the day and insert.
     result = await this.insert(new DayInfo(date, 0, 0));
